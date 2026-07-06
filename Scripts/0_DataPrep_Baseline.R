@@ -18,19 +18,18 @@ library(tidyverse)
 library(ggforce)
 library(decontam)
 
-
 # read in data  -----------------------------------------------------------
-
-
 ps <- readRDS("Data/Phyloseqs/phyloseqBaseline.rds")
 ps 
+
 # phyloseq-class experiment-level object
 # otu_table()   OTU Table:         [ 6557 taxa and 326 samples (controls still included)]
 # sample_data() Sample Data:       [ 326 samples by 17 sample variables ]
 # tax_table()   Taxonomy Table:    [ 6557 taxa by 6 taxonomic ranks ]
 
-#### add in the age / other variables for wild mice 
 
+
+# add in the age and other variables for wild mice  -----------------------
 meta_full <- readxl::read_xlsx("Data/Metadata/Baseline_Data_RB_full.xlsx") 
 colnames(meta_full)
 
@@ -42,137 +41,143 @@ setdiff(meta_merge$SampleId, ps %>% meta %>% pull(SampleId))
 meta_old <- ps %>% meta 
 meta_new <- meta_old %>% 
   dplyr::left_join(., meta_merge, by="SampleId")
+
+## phyloseq sample_data requires row names to correspond to sample IDs
 rownames(meta_new) <- meta_new$SampleId
 
-# check sample names match 
 setdiff(sample_names(ps), rownames(meta_new)) # all match 
 
-meta_new <- meta_new[sample_names(ps), ] # make the order the same  
+## ensures metadata rows appear in the same order as phyloseq sample order
+meta_new <- meta_new[sample_names(ps), ]   
 
-# add new data in 
+## inserts updated metadata into phyloseq 
 sample_data(ps) <- sample_data(meta_new)
 
-# check 
-ps %>% meta %>% colnames # done 
+## verify new variables were added 
+ps %>% meta %>% colnames
 
-## dealing with negatives and contaminants ----------------------------------
+
+
+# dealing with negatives and contaminants ---------------------------------
+
+## identify contaminating taxa as those occurring more frequently in negative 
+## controls than in true biological samples. 
 contams <- isContaminant(ps, method= "prevalence",
-                         neg= sample_data(ps)$SampleType == c("water_primers", "water_only"),
+                         neg = sample_data(ps)$SampleType == c("water_primers", "water_only"),
                          threshold= 0.5)
 
 #saveRDS(contams, "Output/contaminants.rds")
 #contams <- readRDS("Outputs/contaminants.rds")
 
 contaminants <- rownames(contams[contams$contaminant == TRUE, ])
-length(contaminants) # only 6 
+length(contaminants) # only 7 
+
+## remove contaminant taxa
 clean_ps <- prune_taxa(!(taxa_names(ps) %in% contaminants), ps)
-clean_ps <- prune_samples(!(sample_data(clean_ps)$SampleType %in% c("water_primers", "water_only",
-                                                                    "mock_community", "golden_colony", "golden_wild")), 
-                          clean_ps) # keep samples only 
 
-clean_ps # 286 samples with samples only minus controls / technical samples 
+## remove non-biological samples
+clean_ps <- prune_samples(!(sample_data(clean_ps)$SampleType %in% 
+            c("water_primers", "water_only",
+            "mock_community", "golden_colony", "golden_wild")), 
+            clean_ps)
 
-# QC  
-any(taxa_sums(clean_ps) == 0) # TRUE - some have 0? 
+clean_ps # 286 biological samples
+
+
+
+# quality control ---------------------------------------------------------
+
+any(taxa_sums(clean_ps) == 0) # TRUE - some have 0 after samples were removed 
 any(taxa_sums(clean_ps) == 1) # FALSE - none have 1  
-colSums(is.na(tax_table(clean_ps))) # NA table below - lots of NA's but let's keep version with them so that e.g. genus level analyses only have those that are assigned 
-# Kingdom  Phylum   Class   Order  Family   Genus 
-# 2     115     203     330    1399    3903
 
-#try to fix NA's, best way to try to keep as much info as possible is to remove any data that can't be mapped to a Kingdom?
+## NA table below - lots of NA's but let's keep version with them so that 
+## e.g. genus level analyses only have those that are assigned taxa
+## taxonomic assignment gets worse at lower ranks (normal)
+colSums(is.na(tax_table(clean_ps))) 
+## Kingdom  Phylum   Class   Order  Family   Genus 
+## 2     115     203     330    1399    3903
+
+## remove taxa with total abundance </=1
+## often sequencing noise and contribute sparsity and slows down analyses
 ps1 <- prune_taxa(taxa_sums(clean_ps) >1, clean_ps)
-# Drops ASVs down to 3787 (lose around 2900 ASV's that were only present once or less)
+## drops ASVs down to 3786 (lose ~2900 that were only present once or less)
 
+## check (1) taxonomy dimensions match OTU table, (2) sample IDs match, 
+## (3) empty taxa removed
 ps1 <- phyloseq_validate(ps1, remove_undetected = TRUE)
-# NAs detected in phyloseq tax_table:
-# Consider using tax_fix() to make taxa uniquely identifiable
+## NAs detected in phyloseq tax_table:
+## Consider using tax_fix() to make taxa uniquely identifiable
 
+## recheck missing taxonomy
 colSums(is.na(tax_table(ps1)))  
-# Kingdom  Phylum   Class   Order  Family   Genus 
-# 1      51      68     132     770    2155
-# Got rid of a fair few NAs from ps, but still quite a few left need to get rid of 
+## Kingdom  Phylum   Class   Order  Family   Genus 
+## 1      51      68     132     770    2155
+## still quite a few NA's left we need to get rid of 
 
-#ps1 <- tax_fix(ps1)
-# removes NA's
-#colSums(is.na(tax_table(ps1))) 
-# Kingdom  Phylum   Class   Order  Family   Genus 
-# 0       0       0       0       0       0 
+## optional: could force clean taxonomy using tax_fix 
+## ps1 <- tax_fix(ps1) # removes NA's
+## colSums(is.na(tax_table(ps1))) 
+## Kingdom  Phylum   Class   Order  Family   Genus 
+## 0       0       0       0       0       0 
 
-#However, if we then look at the taxa table and list the phylum:
-ps_sample_Phylum <- table(phyloseq::tax_table(ps1)[, "Phylum"])
-#View(ps_sample_Phylum)
-#18 phylum
+## look at the taxa table and list the phylum (18 total):
+length(ps_sample_Phylum <- table(phyloseq::tax_table(ps1)[, "Phylum"]))
 
-#Now need to deal with dropping some other taxa that are not useful
+## first we manually change names of completely unclassified taxa  to Incertae Sedis and can then be dropped from analysis 
+## 1 individual ASV this is happening for and only occurs once in the dataset, can be removed as not meaningful at all - NA at kingdom 
+## tax_table(ps1) %>% as.data.frame %>% filter(is.na(Kingdom)) %>% View 
 
-#First we manually change names of completely unclassified taxa  to Incertae Sedis and can then be dropped from analysis 
-#1 individual ASV this is happening for and only occurs once in the dataset, can be removed as not meaningful at all - NA at kingdom 
-#tax_table(ps1) %>% as.data.frame %>% filter(is.na(Kingdom)) %>% View 
-
-# Extract taxonomy table
+## remove completely unidentified ASVs (sequencing artifacts or non-specific alignments)
 tax <- tax_table(ps1)
-# Find taxa where all taxonomy ranks are NA
 all_na_taxa <- apply(tax, 1, function(x) all(is.na(x)))
-# Remove those taxa from the phyloseq object
-ps1 <- prune_taxa(!all_na_taxa, ps1) # removed 1, 3786 now 
+ps1 <- prune_taxa(!all_na_taxa, ps1) # removed 1, 3785 now 
 
 ps1@tax_table %>% as.data.frame %>% pull(Kingdom) %>% unique # no NAs 
 ps1@tax_table %>% as.data.frame %>% pull(Family) %>% unique # Mitchondria can come out 
 ps1@tax_table %>% as.data.frame %>% pull(Order) %>% unique # Chloroplast can come out 
 
-#examining tax table; in Kingdom we have 1xArchaea which we can keep 
-#also, we have 77 taxa under the family Mitochondria and 13 under the order Chloroplasts - none of these are bacterial or useful 
-#can we try and remove them - tried all in one step, didn't work so do stepwise
-ps2 <- subset_taxa(ps1, (Family!="Mitochondria") | is.na(Family)) #Drop mitochondria (will drop NAs if don't include the na bit) - 3709 
-ps3 <- subset_taxa(ps2, (Order!="Chloroplast") | is.na(Order)) #Drop chloroplast - 3696 after 
-#use ps3 for further downstream analysis 
-
-# taxa_sums(ps3) %>% as.data.frame() %>% 
-#   arrange(desc(.)) %>% 
-#   rename(TotalAbundance=1) -> TotalAbundances 
-# summary(TotalAbundances)
- 
-
-#this bit of code here changes the ASV names to unique names ASV1 - ASV3701
-#instead of their long sequence name
-#makes the tax and otu tables easier to manipulate
+## remove host-derived and plant contaminant taxa
+ps2 <- subset_taxa(ps1, (Family!="Mitochondria") | is.na(Family))
+ps3 <- subset_taxa(ps2, (Order!="Chloroplast") | is.na(Order))
+## have 3695 ASVs now
 
 
-# Calculate prevalence (number of samples in which each ASV is present)
+# rename ASVs (prevalence-based ordering) ---------------------------------
+
+## this code changes ASV names to unique names ASV1 - ASV3695
+## which makes the tax and otu tables easier to manipulate
+
+## calculate prevalence (number of samples in which each ASV is present)
 asv <- as(otu_table(ps3), "matrix")
 
-# Ensure taxa are rows
-if (!taxa_are_rows(ps3)) {
-  asv <- t(asv)
-}
+## Ensure taxa are rows
+if (!taxa_are_rows(ps3)) {asv <- t(asv)}
 
+## compute prevalence
 prev <- rowSums(asv > 0)
 
-# Order taxa by decreasing prevalence
+## order taxa by decreasing prevalence
 taxa_order <- names(sort(prev, decreasing = TRUE))
 
-# Create new ASV names
+## rename ASVs sequentially
 new_names <- paste0("ASV", seq_along(taxa_order))
-
-# Create lookup vector: old name -> new name
 name_map <- setNames(new_names, taxa_order)
-
-# Rename taxa in phyloseq object
 taxa_names(ps3) <- name_map[taxa_names(ps3)]
 
-# Inspect mapping
+## verify mapping
 head(data.frame(
   old_name = names(name_map),
   new_name = unname(name_map)
 ))
  
- # check they're in order prevalence wise 
+## check they're in order by prevalence 
 prevalence(ps3) %>% as.data.frame() %>%
   arrange(desc(.)) %>%
   dplyr::rename(Prevalence=1) %>% 
   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs
-#View(PrevalenceASVs) # all good 
+View(PrevalenceASVs) # all good 
 
+## create ASV key (allows us to map results back to sequences)
 asv_key <- data.frame(
   Sequence = names(name_map),
   ASV = unname(name_map),
@@ -182,7 +187,7 @@ asv_key <- data.frame(
 head(asv_key)
 #saveRDS(asv_key, "Output/asv_key.rds")
 
-#--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 #SUBSETTING 
 #subsetting data into relevent groups for analysis 
