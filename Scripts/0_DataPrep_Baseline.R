@@ -240,78 +240,159 @@ summary(TotalAbundances_All)
 ## was cut the ASV is now zero again 
 
 
-# phyloseq technical subsets & basic summary info -------------------------
 
-## Analysis 1 - ALL Groups (excluding colony controls)
-## maybe drop MF1 later & collapse all wild samples into 1 group
-AllIds <- meta(ps3) %>% 
-  filter(SampleDetailed!="colony control") %>%
-  pull(SampleId) # 282 samples
+# create phylogenetic tree from ASV sequences -----------------------------
 
-## Analysis 2 - RSE experimental groups (wild-like, lab-like & CD1's)
-RseIds <- meta(ps3) %>% 
-  filter(SampleDetailed %in% c("nutrition expt","infection expt","antibiotic expt")) %>%
-  pull(SampleId) # 215 samples (just RSE baseline samples)
+# library(Biostrings)   # DNA sequence handling
+# library(DECIPHER)     # Multiple sequence alignment
+# library(phangorn)     # Phylogenetic tree inference
+# library(ape)          # Tree manipulation
+# 
+# # create DNA sequence object using asv_key
+# seqs <- DNAStringSet(asv_key$Sequence)
+# names(seqs) <- asv_key$ASV
+# 
+# # align ASV sequences
+# alignment <- AlignSeqs(seqs)
+# 
+# # convert alignment for phangorn
+# phang.align <- phyDat(as(alignment, "matrix"), type = "DNA")
+# 
+# # build starting tree, calculate distances between ASVs
+# dm <- dist.ml(phang.align)
+# # create a neighbor joining starting tree
+# treeNJ <- NJ(dm)
+# 
+# # maximum likelihood tree optimization
+# fit <- pml(treeNJ, phang.align)
+# 
+# # NNI is appropriate for 16S amplicon data because it improves the tree
+# # without the very long runtime of stochastic searches
+# fitGTR <- optim.pml(
+#   fit,
+#   model = "GTR", # general time reversible nucleotide substitution model
+#   optInv = TRUE, # estimate proportion of invariant sites
+#   rearrangement = "NNI" # nearest neighbor interchange topology search
+# )
+# 
+# # extract final tree
+# tree <- fitGTR$tree
+# 
+# # check matching ASVs
+# # any in tree but not phylogeny?
+# setdiff(tree$tip.label, taxa_names(ps_all))
+# # any in phyloseq but missing from tree?
+# setdiff(taxa_names(ps_all), tree$tip.label)
+# 
+# # prune tree to match phyloseq
+# tree <- keep.tip(tree, taxa_names(ps_all))
+# length(tree$tip.label)
+# ntaxa(ps_all)
+# 
+# # root the tree
+# # midpoint rooting is commonly used for microbiome studies
+# # when no appropriate outgroup is avaiable
+# tree_rooted <- midpoint(tree)
+# is.rooted(tree_rooted)
 
-ps_rse<- ps_all %>% 
-  ps_filter(SampleId %in% RseIds) 
-ps_rse # 213 samples (2 lost with low reads), 1769 ASVs
+# save/load the final tree and add to ps_all
+# saveRDS(tree_rooted, file = "Output/phylogenetic_tree.rds")
+tree <- readRDS("Output/phylogenetic_tree.rds")
+phy_tree(ps_all) <- tree
 
-## abundance & prevalence
-taxa_sums(ps_rse) %>% as.data.frame() %>%
-  arrange(desc(.)) %>%
-  rename(TotalAbundance=1) -> TotalAbundances_RSE
-summary(TotalAbundances_RSE)
 
-prevalence(ps_rse) %>% as.data.frame() %>%
-  arrange(desc(.)) %>%
-  rename(Prevalence=1) %>%
-  mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_RSE
-summary(PrevalenceASVs_RSE)
 
-## Analysis 3 - All wood mouse cohorts (wild-like, lab-like, Hewan, Penicuik & Falkirk)
-WoodIds <- meta(ps3) %>% 
-  filter(MouseSpecies=="Apodemus sylvaticus") %>% 
-  filter(SampleDetailed!="colony control") %>%
-  pull(SampleId) # 200 samples
+# final filtering of groups -----------------------------------------------
 
-ps_wood <- ps_all %>% 
-  ps_filter(SampleId %in% WoodIds)
-ps_wood # 196 samples (4 lost with low reads), 3012 ASVs
+## Hewan, Penicuik & Falkirk samples all combined into one 'wild' category
+## MF1 & CD1 mice collapsed into Lab
+## ash54 wm colony = lab-like; b17 wm colony = wild-like
+## filter out MF1 and all wild mice except Hewan 2020
+ps_all <- ps_all %>% 
+  ps_mutate(SampleOrigin=case_when(str_detect(SampleDetailed, "MF1 lab mice") ~ "Lab:Mm",
+                                   str_detect(SampleDetailed, "Pen") ~ "Wild:As", 
+                                   str_detect(SampleDetailed, "Hew") ~ "Wild:As",
+                                   str_detect(SampleDetailed, "Fal") ~ "Wild:As",
+                                   str_detect(MouseOrigin, "Ash54 col") ~ "Lab-like:As", 
+                                   str_detect(MouseOrigin, "b17 col") ~ "Wild-like:As",
+                                   str_detect(MouseOrigin, "charles river") ~ "Lab:Mm")) %>% 
+  ps_mutate(SampleOrigin=fct_relevel(SampleOrigin, c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>% 
+  ps_filter(!SampleDetailed %in% c("Penicuik 2020", "Falkirk 2017", "MF1 lab mice")) 
 
-## abundance & prevalence
-taxa_sums(ps_wood) %>% as.data.frame() %>%
-  arrange(desc(.)) %>%
-  rename(TotalAbundance=1) -> TotalAbundances_Wood
-summary(TotalAbundances_Wood)
- 
-prevalence(ps_wood) %>% as.data.frame() %>%
-  arrange(desc(.)) %>%
-  rename(Prevalence=1) %>%
-  mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_Wood
-summary(PrevalenceASVs_Wood)
 
-## Analysis 4 - Lab groups only (no wild samples)
-LabIds <- meta(ps3) %>%
-  filter(MouseOrigin!= "wild") %>% # on csv file space after word wild caused some issues so watch out for
-  filter(SampleDetailed!="colony control") %>% 
-  pull(SampleId) # 225 samples (wild-like, lab-like, CD1, MF1, plus pos and neg controls) 
-
-ps_lab <- ps_all %>% 
-  ps_filter(SampleId %in% LabIds)
-ps_lab # 223 samples (2 low reads dropped), 1911 ASVs
-
-## abundance & prevalence
-taxa_sums(ps_lab) %>% as.data.frame() %>%
-  arrange(desc(.)) %>%
-  rename(TotalAbundance=1) -> TotalAbundances_Lab
-summary(TotalAbundances_Lab)
-
-prevalence(ps_lab) %>% as.data.frame() %>%
-  arrange(desc(.)) %>%
-  rename(Prevalence=1) %>%
-  mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_Lab
-summary(PrevalenceASVs_Lab)
+# 
+# # phyloseq technical subsets & basic summary info -------------------------
+# 
+# ## Analysis 1 - ALL Groups (excluding colony controls)
+# ## maybe drop MF1 later & collapse all wild samples into 1 group
+# AllIds <- meta(ps3) %>% 
+#   filter(SampleDetailed!="colony control") %>%
+#   pull(SampleId) # 282 samples
+# 
+# ## Analysis 2 - RSE experimental groups (wild-like, lab-like & CD1's)
+# RseIds <- meta(ps3) %>% 
+#   filter(SampleDetailed %in% c("nutrition expt","infection expt","antibiotic expt")) %>%
+#   pull(SampleId) # 215 samples (just RSE baseline samples)
+# 
+# ps_rse<- ps_all %>% 
+#   ps_filter(SampleId %in% RseIds) 
+# ps_rse # 213 samples (2 lost with low reads), 1769 ASVs
+# 
+# ## abundance & prevalence
+# taxa_sums(ps_rse) %>% as.data.frame() %>%
+#   arrange(desc(.)) %>%
+#   rename(TotalAbundance=1) -> TotalAbundances_RSE
+# summary(TotalAbundances_RSE)
+# 
+# prevalence(ps_rse) %>% as.data.frame() %>%
+#   arrange(desc(.)) %>%
+#   rename(Prevalence=1) %>%
+#   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_RSE
+# summary(PrevalenceASVs_RSE)
+# 
+# ## Analysis 3 - All wood mouse cohorts (wild-like, lab-like, Hewan, Penicuik & Falkirk)
+# WoodIds <- meta(ps3) %>% 
+#   filter(MouseSpecies=="Apodemus sylvaticus") %>% 
+#   filter(SampleDetailed!="colony control") %>%
+#   pull(SampleId) # 200 samples
+# 
+# ps_wood <- ps_all %>% 
+#   ps_filter(SampleId %in% WoodIds)
+# ps_wood # 196 samples (4 lost with low reads), 3012 ASVs
+# 
+# ## abundance & prevalence
+# taxa_sums(ps_wood) %>% as.data.frame() %>%
+#   arrange(desc(.)) %>%
+#   rename(TotalAbundance=1) -> TotalAbundances_Wood
+# summary(TotalAbundances_Wood)
+#  
+# prevalence(ps_wood) %>% as.data.frame() %>%
+#   arrange(desc(.)) %>%
+#   rename(Prevalence=1) %>%
+#   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_Wood
+# summary(PrevalenceASVs_Wood)
+# 
+# ## Analysis 4 - Lab groups only (no wild samples)
+# LabIds <- meta(ps3) %>%
+#   filter(MouseOrigin!= "wild") %>% # on csv file space after word wild caused some issues so watch out for
+#   filter(SampleDetailed!="colony control") %>% 
+#   pull(SampleId) # 225 samples (wild-like, lab-like, CD1, MF1, plus pos and neg controls) 
+# 
+# ps_lab <- ps_all %>% 
+#   ps_filter(SampleId %in% LabIds)
+# ps_lab # 223 samples (2 low reads dropped), 1911 ASVs
+# 
+# ## abundance & prevalence
+# taxa_sums(ps_lab) %>% as.data.frame() %>%
+#   arrange(desc(.)) %>%
+#   rename(TotalAbundance=1) -> TotalAbundances_Lab
+# summary(TotalAbundances_Lab)
+# 
+# prevalence(ps_lab) %>% as.data.frame() %>%
+#   arrange(desc(.)) %>%
+#   rename(Prevalence=1) %>%
+#   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_Lab
+# summary(PrevalenceASVs_Lab)
 
 # save all 
 # saveRDS(ps_all, "Data/Phyloseqs/phyloseqAllSamples.rds")

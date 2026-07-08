@@ -36,46 +36,12 @@ source("Scripts/0_DataPrep_Baseline.R")
 
 # RAREFACTION - account for different sequencing depths/plates ------------
 
-## Hewan, Penicuik & Falkirk samples all combined into one 'wild' category
-## MF1 & CD1 mice collapsed into Lab
-## ash54 wm colony = lab-like; b17 wm colony = wild-like
-## filter out MF1 and all wild mice except Hewan 2020
-ps_all <- ps_all %>% 
-  ps_mutate(SampleOrigin=case_when(str_detect(SampleDetailed, "MF1 lab mice") ~ "Lab:Mm",
-                                   str_detect(SampleDetailed, "Pen") ~ "Wild:As", 
-                                   str_detect(SampleDetailed, "Hew") ~ "Wild:As",
-                                   str_detect(SampleDetailed, "Fal") ~ "Wild:As",
-                                   str_detect(MouseOrigin, "Ash54 col") ~ "Lab-like:As", 
-                                   str_detect(MouseOrigin, "b17 col") ~ "Wild-like:As",
-                                   str_detect(MouseOrigin, "charles river") ~ "Lab:Mm")) %>% 
-  ps_mutate(SampleOrigin=fct_relevel(SampleOrigin, c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>% 
-  ps_filter(!SampleDetailed %in% c("Penicuik 2020", "Falkirk 2017", "MF1 lab mice")) 
-
 ## Rarefy - subsampling reads from each sample without replacement to a constant depth)
 ps_rare <- phyloseq::rarefy_even_depth(ps_all, rngseed = 123, replace = FALSE)
 ## 309 OTUs were removed because they are no longer present in any sample
 
 head(phyloseq::sample_sums(ps_rare)) 
 ## sequence depth set to 15,857 
-
-
-
-# generate tree for phylogentic analysis ----------------------------------
-
-random_tree = rtree(ntaxa(ps_rare), rooted=TRUE, tip.label=taxa_names(ps_rare)) 
-write.tree(random_tree, "Output/Ps_Rare_PhyloTree")
-
-## read in tree saved previously so no need to make a new one and change analysis 
-random_tree <- read.tree("Output/Ps_Rare_PhyloTree")
-
-## merge tree with phyloseq object
-ps_rare = merge_phyloseq(ps_rare, random_tree)
-# otu_table()   OTU Table:         [ 2554 taxa and 239 samples ]
-# sample_data() Sample Data:       [ 239 samples by 23 sample variables ]
-# tax_table()   Taxonomy Table:    [ 2554 taxa by 6 taxonomic ranks ]
-# phy_tree()    Phylogenetic Tree: [ 2554 tips and 1 internal nodes ]
-
-
 
 # create alpha diversity metrics ------------------------------------------
 

@@ -29,49 +29,22 @@ library(pairwiseAdonis)
 source("Scripts/0_DataPrep_Baseline.R") 
 # runs data prep & sets up all the data subsets 
 
-
-# data subsetting and categorizing ----------------------------------------
-
-## Hewan, Penicuik & Falkirk samples all combined into one 'wild' category
-## MF1 & CD1 mice collapsed into Lab
-## ash54 wm colony = lab-like; b17 wm colony = wild-like
-## filter out MF1 and all wild mice except Hewan 2020
-ps_all <- ps_all %>% 
-  ps_mutate(SampleOrigin=case_when(str_detect(SampleDetailed, "MF1 lab mice") ~ "Lab:Mm",
-                                   str_detect(SampleDetailed, "Pen") ~ "Wild:As", 
-                                   str_detect(SampleDetailed, "Hew") ~ "Wild:As",
-                                   str_detect(SampleDetailed, "Fal") ~ "Wild:As",
-                                   str_detect(MouseOrigin, "Ash54 col") ~ "Lab-like:As", 
-                                   str_detect(MouseOrigin, "b17 col") ~ "Wild-like:As",
-                                   str_detect(MouseOrigin, "charles river") ~ "Lab:Mm")) %>% 
-  ps_mutate(SampleOrigin=fct_relevel(SampleOrigin, c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>% 
-  ps_filter(!SampleDetailed %in% c("Penicuik 2020", "Falkirk 2017", "MF1 lab mice")) 
-                              
-
-
 # filter out 'rare' ASVs and create core ----------------------------------
 
 ps_core <- core(ps_all, detection =5, prevalence = 0.1)  
 ## drops ASVs from 2863 down to 546 - lost over 80%
 
-##generate tree so we can do phylogentic analysis too 
-##random_tree_core = rtree(ntaxa(ps_core), rooted=TRUE, tip.label=taxa_names(ps_core))
-##write.tree(random_tree_core, "Output/Ps_Core_PhyloTree")
-
-## read in tree saved previously so no need to make a new one and change analysis 
-random_tree_core <- read.tree("Output/Ps_Core_PhyloTree")
-
-## merge tree with phyloseq object
-ps_core <- merge_phyloseq(ps_core, random_tree_core)
-# phyloseq-class experiment-level object
-# otu_table()   OTU Table:         [ 546 taxa and 239 samples ]
-# sample_data() Sample Data:       [ 239 samples by 23 sample variables ]
-# tax_table()   Taxonomy Table:    [ 546 taxa by 6 taxonomic ranks ]
-# phy_tree()    Phylogenetic Tree: [ 546 tips and 545 internal nodes ]
-
 ## remove samples with missing metadata BEFORE any ordinations or statistics
 keep <- !is.na(sample_data(ps_core)$Sex)
 ps_core <- prune_samples(keep, ps_core)
+
+## prune tree to only those remaining ASVs
+tree_core <- ape::drop.tip(
+  phy_tree(ps_all),
+  setdiff(phy_tree(ps_all)$tip.label, taxa_names(ps_core))
+)
+
+phy_tree(ps_core) <- tree_core
 
 
 # beta diversity ordination plots -----------------------------------------
@@ -79,8 +52,8 @@ ps_core <- prune_samples(keep, ps_core)
 ps_comp <- microbiome::transform(ps_core, "compositional") # from counts to relative abundances
 ps_meta <- meta(ps_comp) # metadata
 ps_bray <- ordinate(ps_comp, "PCoA", "bray")
-ps_unif <- ordinate(ps_comp, "PCoA", "unifrac")
-ps_wunif <- ordinate(ps_comp, "PCoA", "wunifrac")
+ps_unif <- ordinate(ps_core, "PCoA", "unifrac")
+ps_wunif <- ordinate(ps_core, "PCoA", "wunifrac")
 ps_jaccard <- ordinate(ps_comp, method = "PCoA", distance = "jaccard", binary = TRUE)
 
 ## define order of sample groups 
@@ -163,6 +136,10 @@ adonis_bray_all
 
 pairwise.adonis2(bray_ps ~ SampleOrigin + Sex + SeqPlate,  data = ps_meta)
 
+bd <- betadisper(bray_ps, ps_meta$SampleOrigin)
+anova(betadisper(bray_ps, ps_meta$SampleOrigin))
+permutest(bd, pairwise = TRUE)
+plot(bd)
 
 # WEIGHTED UNIFRAC - PERMANOVA
 wunif_ps <- phyloseq::distance(physeq = ps_comp, method = "wunifrac")
@@ -171,6 +148,10 @@ adonis_wunif_all <- adonis2(wunif_ps ~ SampleOrigin + Sex + SeqPlate, by = "oned
 
 pairwise.adonis2(wunif_ps ~ SampleOrigin + Sex + SeqPlate,  data = ps_meta)
 
+bd <- betadisper(wunif_ps, ps_meta$SampleOrigin)
+anova(betadisper(wunif_ps, ps_meta$SampleOrigin))
+permutest(bd, pairwise = TRUE)
+plot(bd)
 
 # UNWEIGHTED UNIFRAC - PERMANOVA
 unif_ps <- phyloseq::distance(physeq = ps_comp, method = "unifrac")
@@ -179,6 +160,11 @@ adonis_unif_all <- adonis2(unif_ps ~ SampleOrigin + Sex + SeqPlate, by="onedf", 
 
 pairwise.adonis2(unif_ps ~ SampleOrigin + Sex + SeqPlate,  data = ps_meta)
 
+bd <- betadisper(unif_ps, ps_meta$SampleOrigin)
+anova(betadisper(unif_ps, ps_meta$SampleOrigin))
+permutest(bd, pairwise = TRUE)
+plot(bd)
+
 # JACCARD - PERMANOVA
 jaccard_ps <- phyloseq::distance(physeq = ps_comp, method = "jaccard", binary = TRUE)
 set.seed(999)
@@ -186,7 +172,10 @@ adonis_jaccard_all <- adonis2(jaccard_ps ~ SampleOrigin + Sex + SeqPlate, data =
 
 pairwise.adonis2(jaccard_ps ~ SampleOrigin + Sex + SeqPlate, data = ps_meta)
 
-
+bd <- betadisper(jaccard_ps, ps_meta$SampleOrigin)
+anova(betadisper(jaccard_ps, ps_meta$SampleOrigin))
+permutest(bd, pairwise = TRUE)
+plot(bd)
 
 # plot PC1 (variance/dissimilarity scores) across groups ------------------
 
