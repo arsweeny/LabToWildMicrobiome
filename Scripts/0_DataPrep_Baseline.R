@@ -17,6 +17,8 @@ library(ggpubr)
 library(tidyverse)
 library(ggforce)
 library(decontam)
+library(readxl)
+library(dplyr)
 
 # read in data  -----------------------------------------------------------
 ps <- readRDS("Data/Phyloseqs/phyloseqBaseline.rds")
@@ -399,3 +401,146 @@ ps_all <- ps_all %>%
 # saveRDS(ps_rse, "Data/Phyloseqs/phyloseqRSESamples.rds")
 # saveRDS(ps_wood, "Data/Phyloseqs/phyloseqWoodMiceSamples.rds")
 # saveRDS(ps_lab, "Data/Phyloseqs/phyloseqLabSamples.rds")
+
+
+
+# Add age at sampling to ps_all -----------------------------------------------
+
+## read mouse metadata 
+dob_files <- list(
+  `antibiotic expt` = "Data/Metadata/ColonyFullPerturbationData/Antibiotic_Data_RB.xlsx",
+  `infection expt`  = "Data/Metadata/ColonyFullPerturbationData/Infection_Data_RB.xlsx",
+  `nutrition expt`  = "Data/Metadata/ColonyFullPerturbationData/Nutrition_Data_RB.xlsx"
+)
+
+mouse_metadata <- lapply(dob_files, read_xlsx)
+
+
+## function: check metadata consistency and create consensus values 
+
+process_mouse_metadata <- function(df, dataset_name) {
+  
+  # Keep required columns and create unique mouse ID
+  df <- df %>%
+    select(mouse_ID, dob, sex) %>%
+    mutate(
+      dataset = dataset_name,
+      mouse_ID_dataset = paste(dataset_name, mouse_ID, sep = "_")
+    )
+  
+  
+  # Check whether DOB and sex are consistent within each mouse
+  inconsistent <- df %>%
+    group_by(mouse_ID_dataset, mouse_ID, dataset) %>%
+    summarise(
+      n_unique_dob = n_distinct(dob),
+      dob_values = paste(unique(dob), collapse = ", "),
+      n_unique_sex = n_distinct(sex),
+      sex_values = paste(unique(sex), collapse = ", "),
+      .groups = "drop"
+    ) %>%
+    filter(n_unique_dob > 1 | n_unique_sex > 1)
+  
+  
+  # Add consensus DOB and sex (most frequent value per mouse)
+  cleaned <- df %>%
+    group_by(mouse_ID_dataset, mouse_ID, dataset) %>%
+    mutate(
+      dob_c = names(sort(table(as.character(dob)), decreasing = TRUE))[1],
+      sex_c = names(sort(table(as.character(sex)), decreasing = TRUE))[1]
+    ) %>%
+    ungroup()
+  
+  
+  list(
+    cleaned = cleaned,
+    inconsistent = inconsistent
+  )
+}
+
+
+## Process all datasets
+
+processed_metadata <- Map(
+  process_mouse_metadata,
+  mouse_metadata,
+  names(mouse_metadata)
+)
+
+
+## view inconsistent mice 
+## these should only show mice with conflicting DOB or sex within a dataset
+processed_metadata$Antibiotic$inconsistent
+processed_metadata$Infection$inconsistent
+processed_metadata$Nutrition$inconsistent
+
+
+## create one-row-per-mouse metadata table 
+mouse_metadata_final <- bind_rows(
+  lapply(processed_metadata, function(x) x$cleaned)
+) %>%
+  select(
+    mouse_ID_dataset,
+    mouse_ID,
+    dataset,
+    dob = dob_c,
+    sex = sex_c
+  ) %>%
+  distinct()
+
+
+## confirm every experimental mouse has only one DOB/sex 
+mouse_metadata_final %>%
+  count(mouse_ID_dataset) %>%
+  filter(n > 1)
+
+## add matching ID to phyloseq metadata 
+## extract phyloseq metadata and preserve sample names
+ps_meta <- data.frame(sample_data(ps_all))
+ps_meta$SampleID <- rownames(ps_meta)
+
+## create dataset-specific ID in phyloseq metadata
+ps_meta <- ps_meta %>%
+  mutate(
+    mouse_ID_dataset = paste(SampleDetailed, Id, sep = "_"))
+
+## join DOB and sex information
+ps_meta <- ps_meta %>%
+  left_join(
+    mouse_metadata_final,
+    by = "mouse_ID_dataset")
+
+
+## calculate age at sampling
+ps_meta <- ps_meta %>%
+  mutate(
+    SampleDate = as.Date(SampleDate, format = "%d/%m/%Y"),
+    dob = as.Date(dob),
+    age_sampling = as.numeric(SampleDate - dob))
+
+## check for missing DOBs - should be only Wild:As mice
+ps_meta %>%
+  filter(is.na(dob)) %>%
+  select(Id, SampleDetailed)
+
+## check age values
+summary(ps_meta$age_sampling)
+hist(ps_meta$age_sampling)
+
+ggplot(ps_meta[ps_meta$SampleOrigin!="Wild:As",], aes(x = age_sampling)) +
+  geom_histogram(bins = 20) +
+  facet_wrap(~ SampleOrigin) +
+  theme_classic() +
+  labs(
+    x = "Age at sampling (days)",
+    y = "Number of samples")
+
+## restore sample names and return metadata to phyloseq
+rownames(ps_meta) <- ps_meta$SampleID
+ps_meta$SampleID <- NULL
+
+## confirm sample names match
+stopifnot(all(rownames(ps_meta) == sample_names(ps_all)))
+
+## add updated metadata back
+sample_data(ps_all) <- sample_data(ps_meta)
