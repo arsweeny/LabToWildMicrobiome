@@ -63,8 +63,8 @@ sample_data(ps_comp)$SampleOrigin <- factor(sample_data(ps_comp)$SampleOrigin, l
 All_Bray <- plot_ordination(ps_comp, ps_bray, color="SampleOrigin") +
   geom_point(aes(), size= 2) + 
   scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) + 
-  theme_bw(base_size = 22) +
-  theme(plot.title = element_text(hjust = 0, size = 22),
+  theme_bw(base_size = 16) +
+  theme(plot.title = element_text(hjust = 0, size = 16),
         legend.position = "top", legend.title = element_blank()) +
  stat_ellipse() + 
   ggtitle('Bray-Curtis')
@@ -74,8 +74,8 @@ All_Bray
 All_Wunif <- plot_ordination(ps_comp, ps_wunif, color="SampleOrigin") +
   geom_point(aes(), size= 2) + 
   scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) + 
-  theme_bw(base_size = 22) +
-  theme(plot.title = element_text(hjust = 0, size = 22),
+  theme_bw(base_size = 16) +
+  theme(plot.title = element_text(hjust = 0, size = 16),
         legend.position = "top", legend.title = element_blank()) +
   stat_ellipse() + 
   ggtitle('Weighted Unifrac')
@@ -85,8 +85,8 @@ All_Wunif
 All_Unif <- plot_ordination(ps_comp, ps_unif, color="SampleOrigin") +
   geom_point(aes(), size= 2) + 
   scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) + 
-  theme_bw(base_size = 22) +
-  theme(plot.title = element_text(hjust = 0, size = 22),
+  theme_bw(base_size = 16) +
+  theme(plot.title = element_text(hjust = 0, size = 16),
         legend.position = "top", legend.title = element_blank()) +
   stat_ellipse() + 
   ggtitle('Unweighted Unifrac')
@@ -96,9 +96,9 @@ All_Unif
 All_Jaccard <- plot_ordination(ps_comp, ps_jaccard, color = "SampleOrigin") +
   geom_point(size = 2) +
   scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD", "#FB8072")) +
-  theme_bw(base_size = 22) +
+  theme_bw(base_size = 16) +
   theme(
-    plot.title = element_text(hjust = 0, size = 22),
+    plot.title = element_text(hjust = 0, size = 16),
     legend.position = "top",
     legend.title = element_blank()
   ) +
@@ -108,7 +108,39 @@ All_Jaccard
 
 ## plot all ordinations together
 beta_pan <- (All_Bray|All_Jaccard|All_Wunif|All_Unif) + plot_layout(guides = 'collect') & theme(legend.position = "top")
-beta_pan
+
+library(ggpubr)
+
+## remove individual legends
+All_Bray_clean <- All_Bray + 
+  theme(legend.position = "none")
+All_Jaccard_clean <- All_Jaccard + 
+  theme(legend.position = "none")
+All_Wunif_clean <- All_Wunif + 
+  theme(legend.position = "none")
+All_Unif_clean <- All_Unif + 
+  theme(legend.position = "none")
+
+## arrange plots
+beta_pan <- ggarrange(
+  All_Bray_clean,
+  All_Jaccard_clean,
+  All_Wunif_clean,
+  All_Unif_clean,
+  ncol = 2,
+  nrow = 2,
+  labels = c("A", "B", "C", "D"),
+  font.label = list(size = 16, face = "bold"),
+  common.legend = TRUE,
+  legend = "top",
+  align = "hv"
+)
+
+## save final plot
+pdf("Output/Graphs/beta_diversity.pdf", width = 10, height = 10)
+print(beta_pan)
+dev.off()
+
 
 
 # statistical analyses ----------------------------------------------------
@@ -131,10 +163,23 @@ ps_meta <- tidyr::unite(ps_meta,"MouseId", Id, SampleDetailed, remove = F)
 metadf_all <- data.frame(sample_data(ps_meta))
 bray_ps <- phyloseq::distance(physeq = ps_comp, method = "bray")
 set.seed(999)
-adonis_bray_all <- adonis2(bray_ps ~ SampleOrigin + Sex + SeqPlate, by = "onedf", data = ps_meta)
+
+adonis_bray_all <- adonis2(
+  bray_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  strata = ps_meta$mouse_ID_dataset,
+  permutations = 9999,
+  by = "margin"
+)
 adonis_bray_all
 
-pairwise.adonis2(bray_ps ~ SampleOrigin + Sex + SeqPlate,  data = ps_meta)
+pairwise_bray <- pairwise.adonis2(
+  bray_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  by = "margin",
+  strata = "mouse_ID_dataset"
+)
+pairwise_bray
 
 bd <- betadisper(bray_ps, ps_meta$SampleOrigin)
 anova(betadisper(bray_ps, ps_meta$SampleOrigin))
@@ -144,9 +189,23 @@ plot(bd)
 # WEIGHTED UNIFRAC - PERMANOVA
 wunif_ps <- phyloseq::distance(physeq = ps_comp, method = "wunifrac")
 set.seed(999)
-adonis_wunif_all <- adonis2(wunif_ps ~ SampleOrigin + Sex + SeqPlate, by = "onedf", data = ps_meta)
 
-pairwise.adonis2(wunif_ps ~ SampleOrigin + Sex + SeqPlate,  data = ps_meta)
+adonis_wunif_all <- adonis2(
+  wunif_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  strata = ps_meta$mouse_ID_dataset,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_wunif_all
+
+pairwise_wunif <- pairwise.adonis2(
+  wunif_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  by = "margin",
+  strata = "mouse_ID_dataset"
+)
+pairwise_wunif
 
 bd <- betadisper(wunif_ps, ps_meta$SampleOrigin)
 anova(betadisper(wunif_ps, ps_meta$SampleOrigin))
@@ -156,9 +215,23 @@ plot(bd)
 # UNWEIGHTED UNIFRAC - PERMANOVA
 unif_ps <- phyloseq::distance(physeq = ps_comp, method = "unifrac")
 set.seed(999)
-adonis_unif_all <- adonis2(unif_ps ~ SampleOrigin + Sex + SeqPlate, by="onedf", data = ps_meta)
 
-pairwise.adonis2(unif_ps ~ SampleOrigin + Sex + SeqPlate,  data = ps_meta)
+adonis_unif_all <- adonis2(
+  unif_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  strata = ps_meta$mouse_ID_dataset,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_unif_all
+
+pairwise_unif <- pairwise.adonis2(
+  unif_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  by = "margin",
+  strata = "mouse_ID_dataset"
+)
+pairwise_unif
 
 bd <- betadisper(unif_ps, ps_meta$SampleOrigin)
 anova(betadisper(unif_ps, ps_meta$SampleOrigin))
@@ -168,138 +241,153 @@ plot(bd)
 # JACCARD - PERMANOVA
 jaccard_ps <- phyloseq::distance(physeq = ps_comp, method = "jaccard", binary = TRUE)
 set.seed(999)
-adonis_jaccard_all <- adonis2(jaccard_ps ~ SampleOrigin + Sex + SeqPlate, data = ps_meta, by = "onedf")
 
-pairwise.adonis2(jaccard_ps ~ SampleOrigin + Sex + SeqPlate, data = ps_meta)
+adonis_jaccard_all <- adonis2(
+  jaccard_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  strata = ps_meta$mouse_ID_dataset,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_jaccard_all
+
+pairwise_jaccard <- pairwise.adonis2(
+  jaccard_ps ~ SampleOrigin + Sex + SeqPlate,
+  data = ps_meta,
+  by = "margin",
+  strata = "mouse_ID_dataset"
+)
+pairwise_jaccard
 
 bd <- betadisper(jaccard_ps, ps_meta$SampleOrigin)
 anova(betadisper(jaccard_ps, ps_meta$SampleOrigin))
 permutest(bd, pairwise = TRUE)
 plot(bd)
 
-# plot PC1 (variance/dissimilarity scores) across groups ------------------
 
-## extract PC1 coordinates from previously calculated PCoAs
-ps_meta$PC1_Bray  <- ps_bray$vectors[,1]
-ps_meta$PC1_Wunif <- ps_wunif$vectors[,1]
-ps_meta$PC1_Unif  <- ps_unif$vectors[,1]
-ps_meta$PC1_Jaccard <- ps_jaccard$vectors[,1]
 
-## set plotting order
-plot_order <- c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm")
-ps_meta$SampleOrigin <- factor(ps_meta$SampleOrigin, levels = plot_order)
 
-## colour scheme
-origin_colours <- c("Wild:As" = "#74C476", "Wild-like:As" = "#6BAED6", "Lab-like:As" = "#BC80BD", "Lab:Mm" = "#FB8072")
+# extract PERMANOVA and beta dispersion results ---------------------------
 
-## function to calculate mean +/- SE 
-pc1_summary <- function(data, variable){
-  data %>%
-    group_by(SampleOrigin) %>%
-    summarise(
-      mean = mean(.data[[variable]], na.rm = TRUE),
-      se = plotrix::std.error(.data[[variable]], na.rm = TRUE),
-      .groups = "drop"
-    )
-}
+## convert PERMANOVA results to dataframes and add fixed effect names
+add_term_column <- function(x){
+  x <- as.data.frame(x)
+  x$Fixed_effect <- rownames(x)
+  rownames(x) <- NULL
+  x <- x[, c("Fixed_effect", setdiff(names(x), "Fixed_effect"))]
+  return(x)}
 
-## function to make PC1 plots -----------------------------
-pc1_plot <- function(data, variable, ylabel){
+## global PERMANOVA results
+bray_adonis_df <- add_term_column(adonis_bray_all)
+wunif_adonis_df <- add_term_column(adonis_wunif_all)
+unif_adonis_df <- add_term_column(adonis_unif_all)
+jaccard_adonis_df <- add_term_column(adonis_jaccard_all)
+
+## extract pairwise PERMANOVA results
+extract_pairwise <- function(x){
+  results <- list()
+  for(i in names(x)){
+  if(i != "parent_call"){
+  temp <- as.data.frame(x[[i]])
   
-  summary_df <- pc1_summary(data, variable)
+  # Add fixed effect names
+  temp$Fixed_effect <- rownames(temp)
+  rownames(temp) <- NULL
   
-  ggplot(data) +
-    ggforce::geom_sina(
-      aes(
-        x = SampleOrigin,
-        y = .data[[variable]],
-        colour = SampleOrigin
-      ),
-      size = 2,
-      show.legend = FALSE
-    ) +
-    geom_point(
-      data = summary_df,
-      aes(x = SampleOrigin, y = mean),
-      colour = "black",
-      size = 3
-    ) +
-    geom_errorbar(
-      data = summary_df,
-      aes(
-        x = SampleOrigin,
-        ymin = mean - se,
-        ymax = mean + se
-      ),
-      width = 0.3
-    ) +
-    theme_bw(base_size = 20) +
-    scale_colour_manual(values = origin_colours) +
-    scale_x_discrete(guide = guide_axis(angle = 45)) +
-    labs(
-      x = "",
-      y = ylabel
-    )
-}
+  # Add comparison name
+  temp$Comparison <- i
+      
+  # Put columns in logical order
+  temp <- temp[, c(
+  "Comparison",
+  "Fixed_effect",
+  setdiff(names(temp), c("Comparison", "Fixed_effect")))]
+      
+  results[[i]] <- temp}}
 
-## generate figures -----------------------------
+  do.call(rbind, results)}
 
-PC1_Bray_fig <- pc1_plot(
-  ps_meta,
-  "PC1_Bray",
-  "Bray-Curtis (PC1)"
+bray_pairwise_df <- extract_pairwise(pairwise_bray)
+wunif_pairwise_df <- extract_pairwise(pairwise_wunif)
+unif_pairwise_df <- extract_pairwise(pairwise_unif)
+jaccard_pairwise_df <- extract_pairwise(pairwise_jaccard)
+
+## beta dispersion analysis
+bd_bray <- betadisper(bray_ps, ps_meta$SampleOrigin)
+bd_wunif <- betadisper(wunif_ps, ps_meta$SampleOrigin)
+bd_unif <- betadisper(unif_ps, ps_meta$SampleOrigin)
+bd_jaccard <- betadisper(jaccard_ps, ps_meta$SampleOrigin)
+
+## extract dispersion ANOVA results
+bray_disp_anova <- add_term_column(anova(bd_bray))
+wunif_disp_anova <- add_term_column(anova(bd_wunif))
+unif_disp_anova <- add_term_column(anova(bd_unif))
+jaccard_disp_anova <- add_term_column(anova(bd_jaccard))
+
+## extract dispersion permutation tests
+bray_disp_perm_test <- permutest(bd_bray, permutations = 9999)
+wunif_disp_perm_test <- permutest(bd_wunif, permutations = 9999)
+unif_disp_perm_test <- permutest(bd_unif, permutations = 9999)
+jaccard_disp_perm_test <- permutest(bd_jaccard, permutations = 9999)
+
+## extract tables
+bray_disp_perm <- add_term_column(
+  as.data.frame(bray_disp_perm_test$tab)
 )
 
-PC1_Wunif_fig <- pc1_plot(
-  ps_meta,
-  "PC1_Wunif",
-  "Weighted UniFrac (PC1)"
+wunif_disp_perm <- add_term_column(
+  as.data.frame(wunif_disp_perm_test$tab)
 )
 
-PC1_Unif_fig <- pc1_plot(
-  ps_meta,
-  "PC1_Unif",
-  "Unweighted UniFrac (PC1)"
+unif_disp_perm <- add_term_column(
+  as.data.frame(unif_disp_perm_test$tab)
 )
 
-PC1_Jaccard_fig <- pc1_plot(
-  ps_meta,
-  "PC1_Jaccard",
-  "Jaccard (PC1)"
+jaccard_disp_perm <- add_term_column(
+  as.data.frame(jaccard_disp_perm_test$tab)
 )
 
+## add distance metric labels
+bray_adonis_df$Distance <- "Bray-Curtis"
+wunif_adonis_df$Distance <- "Weighted UniFrac"
+unif_adonis_df$Distance <- "Unweighted UniFrac"
+jaccard_adonis_df$Distance <- "Jaccard"
 
-## combine plots
-PC1_Bray_fig | PC1_Wunif_fig | PC1_Unif_fig | PC1_Jaccard_fig
-
-
-## set reference levels for modelling
-ps_meta$SampleOrigin <- factor(ps_meta$SampleOrigin, levels = c("Lab:Mm", "Lab-like:As", "Wild-like:As","Wild:As"))
-ps_meta$SeqPlate <- factor(ps_meta$SeqPlate, levels = c("8","7","6","5","4","3","2","1"))
-
-## create mouse ID for random effect
-ps_meta <- tidyr::unite(ps_meta, "MouseId", Id, SampleDetailed, remove = FALSE)
-
-# bray curtis model
-bray_pc1_glmm <- glmmTMB(PC1_Bray ~ SampleOrigin + Sex + (1|SeqPlate) + (1|MouseId), data = ps_meta)
-summary(bray_pc1_glmm)
-
-emmeans(bray_pc1_glmm, "SampleOrigin") %>% contrast("pairwise", adjust="Tukey")
-
-# jaccard model
-jac_pc1_glmm <- glmmTMB(PC1_Jaccard ~ SampleOrigin + Sex + (1|SeqPlate) + (1|MouseId), data = ps_meta)
-summary(jac_pc1_glmm)
-
-emmeans(jac_pc1_glmm, "SampleOrigin") %>% contrast("pairwise", adjust="Tukey")
-
-# unifrac model
-unif_pc1_glmm <- glmmTMB(PC1_Unif ~ SampleOrigin + Sex + (1|SeqPlate) + (1|MouseId), data = ps_meta)
-summary(unif_pc1_glmm)
-
-emmeans(unif_pc1_glmm, "SampleOrigin") %>% contrast("pairwise", adjust="Tukey")
-
-# wunifrac model
-wunif_pc1_glmm <- glmmTMB(PC1_Wunif ~ SampleOrigin + Sex + (1|SeqPlate) + (1|MouseId), data = ps_meta)
-summary(wunif_pc1_glmm)
-
-emmeans(wunif_pc1_glmm, "SampleOrigin") %>% contrast("pairwise", adjust="Tukey")
+## export Excel workbook
+write.xlsx(
+  
+  list(
+    
+    # Bray-Curtis
+    Bray_PERMANOVA = bray_adonis_df,
+    Bray_pairwise = bray_pairwise_df,
+    Bray_dispersion_ANOVA = bray_disp_anova,
+    Bray_dispersion_perm = bray_disp_perm,
+    
+    
+    # Weighted UniFrac
+    WUniFrac_PERMANOVA = wunif_adonis_df,
+    WUniFrac_pairwise = wunif_pairwise_df,
+    WUniFrac_dispersion_ANOVA = wunif_disp_anova,
+    WUniFrac_dispersion_perm = wunif_disp_perm,
+    
+    
+    # Unweighted UniFrac
+    UniFrac_PERMANOVA = unif_adonis_df,
+    UniFrac_pairwise = unif_pairwise_df,
+    UniFrac_dispersion_ANOVA = unif_disp_anova,
+    UniFrac_dispersion_perm = unif_disp_perm,
+    
+    
+    # Jaccard
+    Jaccard_PERMANOVA = jaccard_adonis_df,
+    Jaccard_pairwise = jaccard_pairwise_df,
+    Jaccard_dispersion_ANOVA = jaccard_disp_anova,
+    Jaccard_dispersion_perm = jaccard_disp_perm
+    
+  ),
+  
+  file = "Output/Beta_PERMANOVA_results.xlsx",
+  
+  overwrite = TRUE
+)

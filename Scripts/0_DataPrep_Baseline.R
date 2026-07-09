@@ -177,7 +177,7 @@ prevalence(ps3) %>% as.data.frame() %>%
   arrange(desc(.)) %>%
   dplyr::rename(Prevalence=1) %>% 
   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs
-View(PrevalenceASVs) # all good 
+#View(PrevalenceASVs) # all good 
 
 ## create ASV key (allows us to map results back to sequences)
 asv_key <- data.frame(
@@ -491,7 +491,7 @@ mouse_metadata_final <- bind_rows(
 
 ## confirm every experimental mouse has only one DOB/sex 
 mouse_metadata_final %>%
-  count(mouse_ID_dataset) %>%
+  dplyr::count(mouse_ID_dataset) %>%
   filter(n > 1)
 
 ## add matching ID to phyloseq metadata 
@@ -506,7 +506,7 @@ ps_meta <- ps_meta %>%
 
 ## join DOB and sex information
 ps_meta <- ps_meta %>%
-  left_join(
+  dplyr::left_join(
     mouse_metadata_final,
     by = "mouse_ID_dataset")
 

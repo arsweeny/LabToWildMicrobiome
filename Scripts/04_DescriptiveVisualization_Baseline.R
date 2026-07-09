@@ -34,24 +34,6 @@ library(emmeans)
 source("Scripts/0_DataPrep_Baseline.R") 
 # runs data prep & sets up all the data subsets 
 
-# data subsetting and categorizing ----------------------------------------
-
-## Hewan, Penicuik & Falkirk samples all combined into one 'wild' category
-## MF1 & CD1 mice collapsed into Lab
-## ash54 wm colony = lab-like; b17 wm colony = wild-like
-## filter out MF1 and all wild mice except Hewan 2020
-ps_all <- ps_all %>% 
-  ps_mutate(SampleOrigin=case_when(str_detect(SampleDetailed, "MF1 lab mice") ~ "Lab:Mm",
-                                   str_detect(SampleDetailed, "Pen") ~ "Wild:As", 
-                                   str_detect(SampleDetailed, "Hew") ~ "Wild:As",
-                                   str_detect(SampleDetailed, "Fal") ~ "Wild:As",
-                                   str_detect(MouseOrigin, "Ash54 col") ~ "Lab-like:As", 
-                                   str_detect(MouseOrigin, "b17 col") ~ "Wild-like:As",
-                                   str_detect(MouseOrigin, "charles river") ~ "Lab:Mm")) %>% 
-  ps_mutate(SampleOrigin=fct_relevel(SampleOrigin, c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>% 
-  ps_filter(!SampleDetailed %in% c("Penicuik 2020", "Falkirk 2017", "MF1 lab mice")) 
-
-
 # relative abundance visualization ----------------------------------------
 
 ## family level
@@ -137,6 +119,10 @@ names(asv_sets) <- levels(metadata$SampleOrigin)
 asv_sets <- asv_sets[c("Wild:As", "Lab:Mm", "Wild-like:As", "Lab-like:As")]
 
 ## upset plot
+library(grid)
+library(gridGraphics)
+library(ggplotify)
+
 UpS <- upset(
   fromList(asv_sets),
   sets = c(
@@ -145,8 +131,16 @@ UpS <- upset(
     "Lab-like:As",
     "Lab:Mm"
   ),
-  order.by = "freq"
+  keep.order = T,
+  order.by = "freq",
+  decreasing = T
 )
+
+UpS_grob <- grid.grabExpr({
+  print(UpS)
+}, wrap.grobs = TRUE)
+
+UpS_gg <- as.ggplot(UpS_grob)
 
 ## venn diagram
 venn <- venn.diagram(
@@ -154,3 +148,21 @@ venn <- venn.diagram(
   fill = c("#74C476", "#FB8072", "#6BAED6", "#BC80BD"),
   alpha = 0.4,
   filename = NULL)
+
+## put them together in multi-panel figure
+library(ggpubr)
+
+visual <- ggarrange(
+  venn,
+  UpS_gg,
+  ncol = 2,
+  nrow = 1,
+  labels = c("A", "B"),
+  font.label = list(size = 16, face = "bold"),
+  widths = c(1, 1.4)
+)
+
+## save final plot
+pdf("Output/Graphs/ASV_overlaps.pdf", width = 10, height = 5)
+print(visual)
+dev.off()
