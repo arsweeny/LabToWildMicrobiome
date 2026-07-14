@@ -1,0 +1,14 @@
+setting,value
+taxonomic_rank,Family
+min_group_prevalence,0.1
+min_group_mean_abundance,0.001
+presence_prevalence_cutoff,0.1
+presence_abundance_cutoff,0.001
+collapse_unclassified,FALSE
+remove_unclassified_nodes,FALSE
+minimum_family_size,22
+maximum_family_size,82
+group_node_size,100
+pie_definition,Group mean abundance restricted to groups passing the presence thresholds
+node_size_definition,"sqrt(overall mean relative abundance), rescaled to Cytoscape node diameter"
+edge_definition,Family passes prevalence and abundance thresholds in connected group

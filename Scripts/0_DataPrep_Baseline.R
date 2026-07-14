@@ -35,7 +35,7 @@ ps
 meta_full <- readxl::read_xlsx("Data/Metadata/Baseline_Data_RB_full.xlsx") 
 colnames(meta_full)
 
-meta_merge <- meta_full %>% select(sample_id, age, repro, body_mass_g, treated) %>% 
+meta_merge <- meta_full %>% dplyr::select(sample_id, age, repro, body_mass_g, treated) %>% 
   janitor::clean_names("big_camel") 
 
 setdiff(meta_merge$SampleId, ps %>% meta %>% pull(SampleId))
@@ -72,7 +72,7 @@ contams <- isContaminant(ps, method= "prevalence",
 #contams <- readRDS("Outputs/contaminants.rds")
 
 contaminants <- rownames(contams[contams$contaminant == TRUE, ])
-length(contaminants) # only 7 
+length(contaminants) # only 6 
 
 ## remove contaminant taxa
 clean_ps <- prune_taxa(!(taxa_names(ps) %in% contaminants), ps)
@@ -422,35 +422,32 @@ process_mouse_metadata <- function(df, dataset_name) {
   
   # Keep required columns and create unique mouse ID
   df <- df %>%
-    select(mouse_ID, dob, sex) %>%
-    mutate(
+    dplyr::select(mouse_ID, dob, sex) %>%
+    dplyr::mutate(
       dataset = dataset_name,
       mouse_ID_dataset = paste(dataset_name, mouse_ID, sep = "_")
     )
   
-  
   # Check whether DOB and sex are consistent within each mouse
   inconsistent <- df %>%
-    group_by(mouse_ID_dataset, mouse_ID, dataset) %>%
-    summarise(
-      n_unique_dob = n_distinct(dob),
+    dplyr::group_by(mouse_ID_dataset, mouse_ID, dataset) %>%
+    dplyr::summarise(
+      n_unique_dob = dplyr::n_distinct(dob),
       dob_values = paste(unique(dob), collapse = ", "),
-      n_unique_sex = n_distinct(sex),
+      n_unique_sex = dplyr::n_distinct(sex),
       sex_values = paste(unique(sex), collapse = ", "),
       .groups = "drop"
     ) %>%
-    filter(n_unique_dob > 1 | n_unique_sex > 1)
-  
+    dplyr::filter(n_unique_dob > 1 | n_unique_sex > 1)
   
   # Add consensus DOB and sex (most frequent value per mouse)
   cleaned <- df %>%
-    group_by(mouse_ID_dataset, mouse_ID, dataset) %>%
-    mutate(
+    dplyr::group_by(mouse_ID_dataset, mouse_ID, dataset) %>%
+    dplyr::mutate(
       dob_c = names(sort(table(as.character(dob)), decreasing = TRUE))[1],
       sex_c = names(sort(table(as.character(sex)), decreasing = TRUE))[1]
     ) %>%
-    ungroup()
-  
+    dplyr::ungroup()
   
   list(
     cleaned = cleaned,
@@ -479,7 +476,7 @@ processed_metadata$Nutrition$inconsistent
 mouse_metadata_final <- bind_rows(
   lapply(processed_metadata, function(x) x$cleaned)
 ) %>%
-  select(
+  dplyr::select(
     mouse_ID_dataset,
     mouse_ID,
     dataset,
@@ -521,7 +518,7 @@ ps_meta <- ps_meta %>%
 ## check for missing DOBs - should be only Wild:As mice
 ps_meta %>%
   filter(is.na(dob)) %>%
-  select(Id, SampleDetailed)
+  dplyr::select(Id, SampleDetailed)
 
 ## check age values
 summary(ps_meta$age_sampling)
