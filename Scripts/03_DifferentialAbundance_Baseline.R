@@ -46,6 +46,352 @@ stopifnot(inherits(ps_all, "phyloseq"))
 
 ancom <- readRDS("C:/Users/wolfs/OneDrive/Documents/1. Ongoing Projects/LabToWildMicrobiome/Output/ANCOMBC2_SampleOrigin_Sex_fixed.rds")
 
+
+# # prepare for ANCOMBC2 analysis -------------------------------------------
+#  
+# ## convert sample metadata to a regular data.frame.
+# meta_ancom <- data.frame(
+#   phyloseq::sample_data(ps_all),
+#   check.names = FALSE
+# )
+# 
+# ## define SampleOrigin as an UNORDERED factor.
+# meta_ancom$SampleOrigin <- factor(
+#   as.character(meta_ancom$SampleOrigin),
+#   levels = c(
+#     "Wild:As",
+#     "Wild-like:As",
+#     "Lab-like:As",
+#     "Lab:Mm"
+#   ),
+#   labels = c(
+#     "Wild_As",
+#     "Wildlike_As",
+#     "Lablike_As",
+#     "Lab_Mm"
+#   ),
+#   ordered = FALSE
+# )
+# 
+# 
+# ## prepare other model variables.
+# meta_ancom$Sex <- droplevels(
+#   factor(meta_ancom$Sex)
+# )
+# 
+# meta_ancom$mouse_ID_dataset <- droplevels(
+#   factor(meta_ancom$mouse_ID_dataset)
+# )
+# 
+# ## SeqPlate is retained in the metadata for descriptive checks, but it is not
+# ## included in the final model because it is completely confounded with the
+# ## Wild group in these data.
+# meta_ancom$SeqPlate <- droplevels(
+#   factor(meta_ancom$SeqPlate)
+# )
+# 
+# ## remove samples missing variables required for the final fixed-effects model.
+# #
+# # mouse_ID_dataset is not required by this fixed model, but retaining only
+# # samples with a valid mouse identifier keeps ps_ancom compatible with other
+# # repeated-measures analyses.
+# keep_samples <- rownames(meta_ancom)[
+#   !is.na(meta_ancom$SampleOrigin) &
+#     !is.na(meta_ancom$Sex) &
+#     !is.na(meta_ancom$mouse_ID_dataset)
+# ]
+# 
+# 
+# ps_ancom <- phyloseq::prune_samples(
+#   keep_samples,
+#   ps_all
+# )
+# 
+# 
+# ## replace the sample metadata in ps_ancom with the cleaned metadata.
+# meta_ancom <- meta_ancom[
+#   phyloseq::sample_names(ps_ancom),
+#   ,
+#   drop = FALSE
+# ]
+# 
+# phyloseq::sample_data(ps_ancom) <-
+#   phyloseq::sample_data(meta_ancom)
+# 
+# ## remove zero-count taxa after sample pruning.
+# ps_ancom <- phyloseq::prune_taxa(
+#   phyloseq::taxa_sums(ps_ancom) > 0,
+#   ps_ancom
+# )
+# 
+# ## drop any unused levels again after pruning.
+# phyloseq::sample_data(ps_ancom)$SampleOrigin <-
+#   droplevels(
+#     factor(
+#       phyloseq::sample_data(ps_ancom)$SampleOrigin,
+#       levels = c(
+#         "Wild_As",
+#         "Wildlike_As",
+#         "Lablike_As",
+#         "Lab_Mm"
+#       ),
+#       ordered = FALSE
+#     )
+#   )
+# 
+# phyloseq::sample_data(ps_ancom)$Sex <-
+#   droplevels(
+#     factor(
+#       phyloseq::sample_data(ps_ancom)$Sex
+#     )
+#   )
+# 
+# phyloseq::sample_data(ps_ancom)$mouse_ID_dataset <-
+#   droplevels(
+#     factor(
+#       phyloseq::sample_data(ps_ancom)$mouse_ID_dataset
+#     )
+#   )
+# 
+# ## VALIDATE MODEL INPUT
+# meta_ancom <- data.frame(
+#   phyloseq::sample_data(ps_ancom),
+#   check.names = FALSE
+# )
+# 
+# expected_origin_levels <- c(
+#   "Wild_As",
+#   "Wildlike_As",
+#   "Lablike_As",
+#   "Lab_Mm"
+# )
+# 
+# if (!identical(
+#   levels(meta_ancom$SampleOrigin),
+#   expected_origin_levels
+# )) {
+#   stop(
+#     paste0(
+#       "SampleOrigin levels are incorrect.\n",
+#       "Current levels: ",
+#       paste(
+#         levels(meta_ancom$SampleOrigin),
+#         collapse = ", "
+#       ),
+#       "\nExpected levels: ",
+#       paste(
+#         expected_origin_levels,
+#         collapse = ", "
+#       )
+#     )
+#   )
+# }
+# 
+# 
+# if (is.ordered(meta_ancom$SampleOrigin)) {
+#   stop(
+#     "SampleOrigin is ordered. It must be an unordered factor."
+#   )
+# }
+# 
+# 
+# if (nlevels(meta_ancom$Sex) < 2) {
+#   stop(
+#     "Sex has fewer than two observed levels after sample filtering."
+#   )
+# }
+# 
+# 
+# ## check sample counts by group.
+# sample_counts_check <- meta_ancom %>%
+#   dplyr::count(
+#     SampleOrigin,
+#     name = "n_samples"
+#   )
+# 
+# print(sample_counts_check)
+# 
+# 
+# ## check sex distribution within groups.
+# sex_counts_check <- meta_ancom %>%
+#   dplyr::count(
+#     SampleOrigin,
+#     Sex,
+#     name = "n_samples"
+#   )
+# 
+# print(sex_counts_check)
+# 
+# 
+# ## confirm that treatment contrasts—not polynomial contrasts—will be used.
+# design_columns <- colnames(
+#   stats::model.matrix(
+#     ~ SampleOrigin + Sex,
+#     data = meta_ancom,
+#     contrasts.arg = list(
+#       SampleOrigin = stats::contr.treatment(
+#         nlevels(meta_ancom$SampleOrigin)
+#       ),
+#       Sex = stats::contr.treatment(
+#         nlevels(meta_ancom$Sex)
+#       )
+#     )
+#   )
+# )
+# 
+# print(design_columns)
+# 
+# 
+# # Expected SampleOrigin coefficient names include:
+# # 
+# #   SampleOriginWildlike_As
+# #   SampleOriginLablike_As
+# #   SampleOriginLab_Mm
+# # 
+# # They should not include:
+# # 
+# #   SampleOrigin.L
+# #   SampleOrigin.Q
+# #   SampleOrigin.C
+# 
+# if (any(grepl(
+#   "SampleOrigin\\.[LQC]",
+#   design_columns
+# ))) {
+#   stop(
+#     "Polynomial SampleOrigin contrasts were detected."
+#   )
+# }
+# 
+# ## RUN FINAL FIXED-EFFECTS ANCOM-BC2 MODEL
+# set.seed(999)
+# 
+# da_fixed <- ANCOMBC::ancombc2(
+#   data = ps_ancom,
+#   
+#   # phyloseq count table
+#   assay_name = "counts",
+#   
+#   # ASV-level analysis
+#   tax_level = NULL,
+#   
+#   # Final fixed-effects model
+#   fix_formula = "SampleOrigin + Sex",
+#   
+#   # No random effect in the final model
+#   rand_formula = NULL,
+#   
+#   # Multiple-testing correction
+#   p_adj_method = "BH",
+#   
+#   # Retain taxa present in at least 10% of samples
+#   prv_cut = 0.10,
+#   
+#   # Variable used for global and pairwise comparisons
+#   group = "SampleOrigin",
+#   
+#   # Run all six pairwise group comparisons
+#   pairwise = TRUE,
+#   
+#   # Run the overall four-group test
+#   global = TRUE,
+#   
+#   # Do not restrict comparisons to the reference group
+#   dunnet = FALSE,
+#   
+#   # No ordered-trend test
+#   trend = FALSE,
+#   
+#   alpha = 0.05,
+#   
+#   # Use one core for reproducibility and easier debugging
+#   n_cl = 1
+# )
+# 
+# stopifnot(
+#   is.list(da_fixed),
+#   is.data.frame(da_fixed$res),
+#   is.data.frame(da_fixed$res_global),
+#   is.data.frame(da_fixed$res_pair)
+# )
+# 
+# cat(
+#   "\nANCOM-BC2 MODEL COMPLETE\n",
+#   "========================\n",
+#   "Samples analysed: ",
+#   phyloseq::nsamples(ps_ancom),
+#   "\nASVs retained by ANCOM-BC2: ",
+#   nrow(da_fixed$res),
+#   "\nGlobally robust differential ASVs: ",
+#   sum(
+#     da_fixed$res_global$diff_robust_abn,
+#     na.rm = TRUE
+#   ),
+#   "\n\n",
+#   sep = ""
+# )
+# 
+# print(
+#   summary(
+#     da_fixed$res_global
+#   )
+# )
+# 
+# ## confirm that pairwise columns have treatment-coded names.
+# pairwise_lfc_columns <- grep(
+#   "^lfc_",
+#   names(da_fixed$res_pair),
+#   value = TRUE
+# )
+# 
+# print(pairwise_lfc_columns)
+# 
+# expected_pairwise_lfc_columns <- c(
+#   "lfc_SampleOriginWildlike_As",
+#   "lfc_SampleOriginLablike_As",
+#   "lfc_SampleOriginLab_Mm",
+#   paste0(
+#     "lfc_SampleOriginLablike_As_",
+#     "SampleOriginWildlike_As"
+#   ),
+#   paste0(
+#     "lfc_SampleOriginLab_Mm_",
+#     "SampleOriginWildlike_As"
+#   ),
+#   paste0(
+#     "lfc_SampleOriginLab_Mm_",
+#     "SampleOriginLablike_As"
+#   )
+# )
+# 
+# missing_pairwise_lfc_columns <- setdiff(
+#   expected_pairwise_lfc_columns,
+#   names(da_fixed$res_pair)
+# )
+# 
+# if (length(missing_pairwise_lfc_columns) > 0) {
+#   stop(
+#     paste0(
+#       "The expected pairwise output columns are missing:\n",
+#       paste(
+#         missing_pairwise_lfc_columns,
+#         collapse = "\n"
+#       ),
+#       "\n\nActual lfc columns:\n",
+#       paste(
+#         pairwise_lfc_columns,
+#         collapse = "\n"
+#       )
+#     )
+#   )
+# }
+# 
+# 
+# ## SAVE MODEL AND ANALYSIS OBJECT
+# ancom <- da_fixed
+# saveRDS(
+#   ancom, file = "Output/ANCOMBC2_SampleOrigin_Sex_fixed.rds")
+
 # ==============================================================================
 # 3. VALIDATE INPUT OBJECTS
 # ==============================================================================
@@ -947,7 +1293,43 @@ print(p_pairwise_counts)
 # ==============================================================================
 # 16. VOLCANO PLOT FUNCTION
 # ==============================================================================
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(patchwork)
 
+label_n <- 8
+
+comparison_order <- c(
+  "Wild-like vs Wild",
+  "Lab-like vs Wild-like",
+  "Lab vs Lab-like",
+  "Lab-like vs Wild",
+  "Lab vs Wild-like",
+  "Lab vs Wild"
+)
+
+volcano_colours <- c(
+  "Positive LFC" = "#F8766D",
+  "Negative LFC" = "#00BA38",
+  "Not significant" = "#619CFF"
+)
+
+missing_comparisons <- setdiff(
+  comparison_order,
+  unique(pairwise_results$comparison)
+)
+
+if (length(missing_comparisons) > 0) {
+  stop(
+    paste0(
+      "Missing comparisons:\n",
+      paste(missing_comparisons, collapse = "\n")
+    )
+  )
+}
+
+## volcano function
 make_volcano <- function(
     comparison_name,
     label_n = 8
@@ -964,26 +1346,69 @@ make_volcano <- function(
       ),
       
       plot_group = dplyr::case_when(
-        robust_significant %in% TRUE &
-          lfc > 0 ~
-          paste0("Higher in ", group_1),
+        robust_significant %in% TRUE & lfc > 0 ~
+          "Positive LFC",
         
-        robust_significant %in% TRUE &
-          lfc < 0 ~
-          paste0("Higher in ", group_2),
+        robust_significant %in% TRUE & lfc < 0 ~
+          "Negative LFC",
         
         TRUE ~
           "Not significant"
+      ),
+      
+      plot_group = factor(
+        plot_group,
+        levels = c(
+          "Positive LFC",
+          "Negative LFC",
+          "Not significant"
+        )
       )
     )
   
   
+  group_1_name <- unique(
+    as.character(plot_data$group_1)
+  )
+  
+  group_2_name <- unique(
+    as.character(plot_data$group_2)
+  )
+  
+  
+  if (
+    length(group_1_name) != 1 ||
+    length(group_2_name) != 1
+  ) {
+    stop(
+      paste0(
+        "Comparison '",
+        comparison_name,
+        "' does not have exactly one group_1 and group_2."
+      )
+    )
+  }
+  
+  
   label_data <- plot_data %>%
     dplyr::filter(
-      robust_significant %in% TRUE
+      robust_significant %in% TRUE,
+      !is.na(taxon_name),
+      taxon_name != ""
     ) %>%
-    dplyr::arrange(q_value) %>%
-    dplyr::slice_head(n = label_n)
+    dplyr::arrange(
+      q_value,
+      dplyr::desc(abs(lfc))
+    ) %>%
+    dplyr::slice_head(
+      n = label_n
+    )
+  
+  
+  n_robust <- sum(
+    plot_data$robust_significant %in% TRUE,
+    na.rm = TRUE
+  )
   
   
   ggplot2::ggplot(
@@ -994,74 +1419,174 @@ make_volcano <- function(
       colour = plot_group
     )
   ) +
+    
     ggplot2::geom_hline(
       yintercept = -log10(0.05),
       linetype = 2,
-      linewidth = 0.4
+      linewidth = 0.35,
+      colour = "grey35"
     ) +
+    
     ggplot2::geom_vline(
       xintercept = 0,
       linetype = 2,
-      linewidth = 0.4
+      linewidth = 0.35,
+      colour = "grey35"
     ) +
+    
     ggplot2::geom_point(
       size = 1.8,
-      alpha = 0.75
+      alpha = 0.75,
+      na.rm = TRUE
     ) +
+    
     ggrepel::geom_text_repel(
       data = label_data,
-      ggplot2::aes(label = taxon_name),
-      size = 2.7,
+      ggplot2::aes(
+        label = taxon_name
+      ),
+      size = 2.6,
       max.overlaps = Inf,
-      show.legend = FALSE
+      min.segment.length = 0,
+      box.padding = 0.25,
+      point.padding = 0.20,
+      segment.linewidth = 0.25,
+      segment.colour = "grey55",
+      show.legend = FALSE,
+      seed = 999
     ) +
+    
+    # This scale must be exactly identical in every panel.
+    ggplot2::scale_colour_manual(
+      values = volcano_colours,
+      breaks = c(
+        "Positive LFC",
+        "Negative LFC"
+      ),
+      labels = c(
+        "Higher in first-named group",
+        "Higher in second-named group"
+      ),
+      drop = FALSE
+    ) + 
+    
     ggplot2::labs(
       x = paste0(
-        "Log fold change\n",
-        "positive = higher in ",
-        unique(plot_data$group_1)
+        "Log fold change\n"
       ),
-      y = expression(-log[10]("q-value")),
+      
+      y = expression(
+        -log[10]("q-value")
+      ),
+      
       colour = NULL,
+      
       title = comparison_name,
-      subtitle = paste0(
-        sum(
-          plot_data$robust_significant,
-          na.rm = TRUE
-        ),
-        " robust differential ASVs"
-      )
+      
     ) +
+    
     ggplot2::theme_classic(
       base_size = 10
     ) +
+    
     ggplot2::theme(
+      plot.title.position = "plot",
+      
+      plot.title = ggplot2::element_text(
+        size = 11,
+        margin = ggplot2::margin(b = 1)
+      ),
+      
+      plot.subtitle = ggplot2::element_text(
+        size = 9,
+        margin = ggplot2::margin(b = 4)
+      ),
+      
+      axis.title = ggplot2::element_text(
+        size = 9
+      ),
+      
+      axis.text = ggplot2::element_text(
+        size = 8
+      ),
+      
       legend.position = "bottom",
-      plot.title.position = "plot"
+      
+      plot.margin = ggplot2::margin(
+        t = 4,
+        r = 6,
+        b = 4,
+        l = 4
+      )
     )
 }
 
-
+## create plates
 volcano_plots <- stats::setNames(
   lapply(
-    contrast_map$comparison,
-    make_volcano
+    comparison_order,
+    make_volcano,
+    label_n = label_n
   ),
-  contrast_map$comparison
+  comparison_order
 )
 
-
-p_all_volcanoes <-
-  volcano_plots[["Wild-like vs Wild"]] +
-  volcano_plots[["Lab-like vs Wild-like"]] +
-  volcano_plots[["Lab vs Lab-like"]] +
-  volcano_plots[["Lab-like vs Wild"]] +
-  volcano_plots[["Lab vs Wild-like"]] +
-  volcano_plots[["Lab vs Wild"]] +
-  patchwork::plot_layout(ncol = 3) +
+## combine plots
+p_all_volcanoes <- patchwork::wrap_plots(
+  volcano_plots[comparison_order],
+  ncol = 3,
+  guides = "collect"
+) +
+  
   patchwork::plot_annotation(
     tag_levels = "A",
-    title = "Pairwise differential abundance across the gradient"
+    
+    theme = ggplot2::theme(
+      plot.title = ggplot2::element_text(
+        size = 14,
+        face = "bold",
+        hjust = 0
+      ),
+      
+      plot.tag = ggplot2::element_text(
+        size = 12,
+        face = "plain"
+      )
+    )
+  ) &
+  
+  ggplot2::theme(
+    legend.position = "bottom",
+    
+    legend.box = "horizontal",
+    
+    legend.justification = "center",
+    
+    legend.text = ggplot2::element_text(
+      size = 8
+    ),
+    
+    legend.key.width = grid::unit(
+      0.6,
+      "cm"
+    ),
+    
+    legend.key.height = grid::unit(
+      0.35,
+      "cm"
+    ),
+    
+    legend.spacing.x = grid::unit(
+      0.08,
+      "cm"
+    ),
+    
+    legend.margin = ggplot2::margin(
+      t = 2,
+      r = 0,
+      b = 0,
+      l = 0
+    )
   )
 
 print(p_all_volcanoes)
@@ -1167,7 +1692,7 @@ print(p_global_heatmap)
 # 18. FIGURE 4: PAIRWISE SIGNIFICANCE TILE PLOT
 # ==============================================================================
 
-n_tile_taxa <- 80
+n_tile_taxa <- 50
 
 
 tile_taxa <- pairwise_results %>%
@@ -1242,13 +1767,11 @@ p_significance_tile <- ggplot2::ggplot(
   ) +
   ggplot2::scale_fill_gradient2(
     low = "steelblue",
-    mid = "white",
     high = "firebrick",
     midpoint = 0,
-    breaks = c(-1, 0, 1),
+    breaks = c(-1, 1),
     labels = c(
       "Higher in group 2",
-      "Not significant",
       "Higher in group 1"
     ),
     name = NULL
@@ -1279,80 +1802,6 @@ p_significance_tile <- ggplot2::ggplot(
   )
 
 print(p_significance_tile)
-
-
-# ==============================================================================
-# 19. FIGURE 5: FOREST PLOT FUNCTION
-# ==============================================================================
-
-make_forest_plot <- function(
-    comparison_name,
-    top_n = 20
-) {
-  
-  forest_data <- pairwise_results %>%
-    dplyr::filter(
-      comparison == comparison_name,
-      robust_significant %in% TRUE
-    ) %>%
-    dplyr::arrange(q_value) %>%
-    dplyr::slice_head(n = top_n) %>%
-    dplyr::mutate(
-      taxon_label = forcats::fct_reorder(
-        taxon_label,
-        lfc
-      )
-    )
-  
-  
-  ggplot2::ggplot(
-    forest_data,
-    ggplot2::aes(
-      x = lfc,
-      y = taxon_label
-    )
-  ) +
-    ggplot2::geom_vline(
-      xintercept = 0,
-      linetype = 2
-    ) +
-    ggplot2::geom_errorbarh(
-      ggplot2::aes(
-        xmin = ci_low,
-        xmax = ci_high
-      ),
-      height = 0.2
-    ) +
-    ggplot2::geom_point(
-      size = 2
-    ) +
-    ggplot2::labs(
-      x = paste0(
-        "Log fold change\n",
-        "positive = higher in ",
-        unique(forest_data$group_1)
-      ),
-      y = NULL,
-      title = comparison_name,
-      subtitle = paste0(
-        "Top ",
-        min(top_n, nrow(forest_data)),
-        " robust taxa by q-value"
-      )
-    ) +
-    ggplot2::theme_classic(
-      base_size = 10
-    )
-}
-
-
-p_forest_lab_wild <- make_forest_plot(
-  "Lab vs Wild",
-  top_n = 20
-)
-
-print(p_forest_lab_wild)
-
 
 # ==============================================================================
 # 20. FIGURE 6: REPRESENTATIVE TAXON TRAJECTORIES
@@ -1457,221 +1906,6 @@ print(p_taxon_trajectories)
 
 
 # ==============================================================================
-# 21. FIGURE 7: SAMPLE-LEVEL BOXPLOTS
-# ==============================================================================
-
-boxplot_taxa <- pairwise_results %>%
-  dplyr::filter(
-    comparison == "Lab vs Wild",
-    robust_significant %in% TRUE
-  ) %>%
-  dplyr::arrange(q_value) %>%
-  dplyr::slice_head(n = 8) %>%
-  dplyr::pull(taxon)
-
-
-boxplot_data <- abundance_long %>%
-  dplyr::filter(
-    taxon %in% boxplot_taxa
-  ) %>%
-  dplyr::mutate(
-    abundance_percent =
-      100 * relative_abundance
-  )
-
-
-p_taxon_boxplots <- ggplot2::ggplot(
-  boxplot_data,
-  ggplot2::aes(
-    x = SampleOrigin_label,
-    y = abundance_percent
-  )
-) +
-  ggplot2::geom_boxplot(
-    outlier.shape = NA,
-    width = 0.65
-  ) +
-  ggplot2::geom_jitter(
-    width = 0.12,
-    alpha = 0.5,
-    size = 0.8
-  ) +
-  ggplot2::facet_wrap(
-    ~ taxon_label,
-    scales = "free_y",
-    ncol = 4
-  ) +
-  ggplot2::labs(
-    x = NULL,
-    y = "Relative abundance (%)",
-    title = "Sample-level abundance of top Lab-versus-Wild taxa",
-    subtitle = "Descriptive values; inference is from ANCOM-BC2"
-  ) +
-  ggplot2::theme_classic(
-    base_size = 10
-  ) +
-  ggplot2::theme(
-    axis.text.x = ggplot2::element_text(
-      angle = 35,
-      hjust = 1
-    ),
-    strip.text = ggplot2::element_text(
-      size = 7
-    )
-  )
-
-print(p_taxon_boxplots)
-
-
-# ==============================================================================
-# 22. FIGURE 8: PREVALENCE VERSUS ABUNDANCE CHANGE
-# ==============================================================================
-
-lab_wild_prevalence <- pairwise_results %>%
-  dplyr::filter(
-    comparison == "Lab vs Wild"
-  ) %>%
-  dplyr::left_join(
-    group_abundance_wide %>%
-      dplyr::select(
-        taxon,
-        `prevalence__Wild`,
-        `prevalence__Lab`,
-        `mean_relative_abundance__Wild`,
-        `mean_relative_abundance__Lab`
-      ),
-    by = "taxon"
-  ) %>%
-  dplyr::mutate(
-    prevalence_change =
-      `prevalence__Lab` -
-      `prevalence__Wild`,
-    
-    abundance_log2_ratio = log2(
-      (`mean_relative_abundance__Lab` + 1e-6) /
-        (`mean_relative_abundance__Wild` + 1e-6)
-    ),
-    
-    significance_label = ifelse(
-      robust_significant %in% TRUE,
-      "Robust differential",
-      "Not significant"
-    )
-  )
-
-
-p_prevalence_abundance <- ggplot2::ggplot(
-  lab_wild_prevalence,
-  ggplot2::aes(
-    x = prevalence_change,
-    y = abundance_log2_ratio,
-    colour = significance_label
-  )
-) +
-  ggplot2::geom_hline(
-    yintercept = 0,
-    linetype = 2
-  ) +
-  ggplot2::geom_vline(
-    xintercept = 0,
-    linetype = 2
-  ) +
-  ggplot2::geom_point(
-    alpha = 0.7
-  ) +
-  ggplot2::labs(
-    x = "Change in prevalence: Lab − Wild",
-    y = "Log2 ratio of mean abundance: Lab / Wild",
-    colour = NULL,
-    title = "Taxa can change in prevalence, abundance, or both",
-    subtitle = "Lab versus Wild descriptive comparison"
-  ) +
-  ggplot2::theme_classic(
-    base_size = 11
-  ) +
-  ggplot2::theme(
-    legend.position = "bottom"
-  )
-
-print(p_prevalence_abundance)
-
-
-# ==============================================================================
-# 23. FIGURE 9: EFFECT-SIZE CORRELATIONS AMONG CONTRASTS
-# ==============================================================================
-
-effect_matrix <- pairwise_results %>%
-  dplyr::select(
-    taxon,
-    comparison_short,
-    lfc
-  ) %>%
-  tidyr::pivot_wider(
-    names_from = comparison_short,
-    values_from = lfc
-  )
-
-
-effect_correlations <- stats::cor(
-  effect_matrix %>%
-    dplyr::select(-taxon),
-  use = "pairwise.complete.obs"
-)
-
-
-effect_correlation_long <- as.data.frame(
-  effect_correlations
-) %>%
-  tibble::rownames_to_column("comparison_1") %>%
-  tidyr::pivot_longer(
-    -comparison_1,
-    names_to = "comparison_2",
-    values_to = "correlation"
-  )
-
-
-p_effect_correlation <- ggplot2::ggplot(
-  effect_correlation_long,
-  ggplot2::aes(
-    x = comparison_1,
-    y = comparison_2,
-    fill = correlation
-  )
-) +
-  ggplot2::geom_tile(
-    colour = "white"
-  ) +
-  ggplot2::geom_text(
-    ggplot2::aes(
-      label = sprintf("%.2f", correlation)
-    ),
-    size = 3
-  ) +
-  ggplot2::scale_fill_gradient2(
-    limits = c(-1, 1),
-    midpoint = 0,
-    name = "Correlation"
-  ) +
-  ggplot2::labs(
-    x = NULL,
-    y = NULL,
-    title = "Similarity of ASV effect sizes among contrasts"
-  ) +
-  ggplot2::theme_minimal(
-    base_size = 9
-  ) +
-  ggplot2::theme(
-    panel.grid = ggplot2::element_blank(),
-    axis.text.x = ggplot2::element_text(
-      angle = 45,
-      hjust = 1
-    )
-  )
-
-print(p_effect_correlation)
-
-
-# ==============================================================================
 # 24. FIGURE 10: TRANSITION-PATTERN COUNTS
 # ==============================================================================
 
@@ -1705,206 +1939,24 @@ print(p_transition_counts)
 
 
 # ==============================================================================
-# 25. OPTIONAL UPSET PLOT
-# ==============================================================================
-
-# Requires:
-# install.packages("ComplexUpset")
-#
-# library(ComplexUpset)
-
-significance_wide <- pairwise_results %>%
-  dplyr::select(
-    taxon,
-    comparison_short,
-    robust_significant
-  ) %>%
-  tidyr::pivot_wider(
-    names_from = comparison_short,
-    values_from = robust_significant,
-    values_fill = FALSE
-  )
-
-
-library(ComplexUpset)
-
-p_upset <- ComplexUpset::upset(
-  significance_wide,
-  intersect = as.character(
-    contrast_map$comparison_short
-  ),
-  name = "Differential ASV set",
-  base_annotations = list(
-    "Intersection size" =
-      ComplexUpset::intersection_size()
-  )
-)
-
-print(p_upset)
-
-
-# ==============================================================================
-# 26. MULTIPANEL FIGURE: OVERVIEW
-# ==============================================================================
-
-p_overview_multipanel <-
-  (
-    p_pairwise_counts |
-      p_transition_counts
-  ) /
-  (
-    p_prevalence_abundance |
-      p_effect_correlation
-  ) +
-  patchwork::plot_annotation(
-    tag_levels = "A",
-    title = "ANCOM-BC2 summary of microbiome change along the gradient"
-  )
-
-print(p_overview_multipanel)
-
-
-# ==============================================================================
-# 27. MULTIPANEL FIGURE: TAXON-LEVEL STORY
-# ==============================================================================
-
-p_taxon_multipanel <-
-  (
-    p_global_heatmap |
-      p_significance_tile
-  ) /
-  (
-    p_taxon_trajectories |
-      p_forest_lab_wild
-  ) +
-  patchwork::plot_annotation(
-    tag_levels = "A",
-    title = "Taxon-level restructuring from wild to laboratory microbiomes"
-  )
-
-print(p_taxon_multipanel)
-
-
-# ==============================================================================
 # 28. SAVE ALL FIGURES
 # ==============================================================================
 
-save_plot <- function(
-    plot_object,
-    filename,
-    width,
-    height
-) {
-  
-  ggplot2::ggsave(
-    filename = paste0(
-      "Figures/ANCOMBC2/",
-      filename,
-      ".pdf"
-    ),
-    plot = plot_object,
-    width = width,
-    height = height
-  )
-  
-  ggplot2::ggsave(
-    filename = paste0(
-      "Figures/ANCOMBC2/",
-      filename,
-      ".png"
-    ),
-    plot = plot_object,
-    width = width,
-    height = height,
-    dpi = 300
-  )
-}
+pdf("Output/Graphs/ANCOM_pairwise_counts.pdf", width = 5, height = 4)
+print(p_pairwise_counts)
+dev.off()
 
+pdf("Output/Graphs/ANCOM_volcano.pdf", width = 10, height = 6)
+print(p_all_volcanoes)
+dev.off()
 
-save_plot(
-  p_pairwise_counts,
-  "01_pairwise_counts",
-  9,
-  6
-)
+pdf("Output/Graphs/ANCOM_global_heatmap.pdf", width = 7, height = 7)
+print(p_global_heatmap)
+dev.off()
 
-save_plot(
-  p_all_volcanoes,
-  "02_all_pairwise_volcanoes",
-  15,
-  10
-)
-
-save_plot(
-  p_global_heatmap,
-  "03_global_heatmap",
-  9,
-  12
-)
-
-save_plot(
-  p_significance_tile,
-  "04_pairwise_significance_tile",
-  10,
-  14
-)
-
-save_plot(
-  p_forest_lab_wild,
-  "05_forest_Lab_vs_Wild",
-  8,
-  7
-)
-
-save_plot(
-  p_taxon_trajectories,
-  "06_taxon_trajectories",
-  12,
-  9
-)
-
-save_plot(
-  p_taxon_boxplots,
-  "07_taxon_boxplots",
-  12,
-  7
-)
-
-save_plot(
-  p_prevalence_abundance,
-  "08_prevalence_vs_abundance",
-  8,
-  6
-)
-
-save_plot(
-  p_effect_correlation,
-  "09_effect_size_correlations",
-  9,
-  8
-)
-
-save_plot(
-  p_transition_counts,
-  "10_transition_pattern_counts",
-  8,
-  6
-)
-
-save_plot(
-  p_overview_multipanel,
-  "11_overview_multipanel",
-  14,
-  10
-)
-
-save_plot(
-  p_taxon_multipanel,
-  "12_taxon_story_multipanel",
-  18,
-  14
-)
-
+pdf("Output/Graphs/ANCOM_significance_tiles.pdf", width = 7, height = 7)
+print(p_significance_tile)
+dev.off()
 
 # ==============================================================================
 # 29. EXCEL EXPORT
@@ -2213,13 +2265,3 @@ cat(
 )
 
 print(first_transition_summary)
-
-
-# ==============================================================================
-# 32. SAVE SESSION INFORMATION
-# ==============================================================================
-
-utils::capture.output(
-  sessionInfo(),
-  file = "Output/ANCOMBC2/sessionInfo.txt"
-)
