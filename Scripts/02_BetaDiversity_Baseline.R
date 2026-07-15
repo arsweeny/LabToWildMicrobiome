@@ -26,7 +26,8 @@ library(RColorBrewer)
 library(emmeans)
 library(pairwiseAdonis)
 
-source("Scripts/0_DataPrep_Baseline.R") 
+source("Scripts/00_DataPrep_Baseline.R") 
+source("Scripts/01_AlphaDiversity_Baseline.R")
 # runs data prep & sets up all the data subsets 
 
 # filter out 'rare' ASVs and create core ----------------------------------
@@ -135,12 +136,11 @@ beta_pan <- ggarrange(
   legend = "top",
   align = "hv"
 )
-
-## save final plot
-pdf("Output/Graphs/beta_diversity.pdf", width = 10, height = 10)
-print(beta_pan)
-dev.off()
-
+# 
+# ## save final plot
+# pdf("Output/Graphs/beta_diversity.pdf", width = 10, height = 10)
+# print(beta_pan)
+# dev.off()
 
 
 # statistical analyses ----------------------------------------------------
@@ -391,3 +391,214 @@ write.xlsx(
   
   overwrite = TRUE
 )
+
+
+
+## save final plot
+# ==============================================================================
+# CLEAN 2 × 2 ALPHA- AND BETA-DIVERSITY FIGURE
+# ==============================================================================
+
+library(ggplot2)
+library(patchwork)
+
+
+# ==============================================================================
+# 1. COHORT LABELS
+# ==============================================================================
+
+cohort_labels <- c(
+  "Wild:As"      = "Wild:As",
+  "Wild-like:As" = "Wild-like:As",
+  "Lab-like:As"  = "Lab-like:As",
+  "Lab:Mm"       = "Lab:Mm"
+)
+
+
+# ==============================================================================
+# 2. COMMON THEME
+# ==============================================================================
+
+common_theme <- theme_classic(base_size = 12) +
+  
+  theme(
+    panel.grid.major = element_line(
+      colour = "grey90",
+      linewidth = 0.35
+    ),
+    
+    panel.grid.minor = element_blank(),
+    
+    axis.title = element_text(
+      size = 13,
+      colour = "black"
+    ),
+    
+    axis.text = element_text(
+      size = 10,
+      colour = "black"
+    ),
+    
+    plot.title = element_text(
+      size = 14,
+      face = "bold",
+      hjust = 0.5,
+      margin = margin(b = 6)
+    ),
+    
+    legend.title = element_blank(),
+    
+    legend.text = element_text(
+      size = 11
+    ),
+    
+    plot.margin = margin(
+      8, 8, 8, 8
+    )
+  )
+
+
+# ==============================================================================
+# 3. ALPHA-DIVERSITY PANELS
+# ==============================================================================
+
+shan_all_final <- shan_all_R +
+  
+  scale_x_discrete(
+    labels = cohort_labels
+  ) +
+  
+  labs(
+    x = NULL,
+    y = "Shannon diversity"
+  ) +
+  
+  common_theme +
+  
+  theme(
+    axis.text.x = element_text(
+      angle = 35,
+      hjust = 1,
+      vjust = 1,
+      size = 10
+    )
+  )
+
+
+pd_all_final <- pd_all_R +
+  
+  scale_x_discrete(
+    labels = cohort_labels
+  ) +
+  
+  labs(
+    x = NULL,
+    y = "Faith's phylogenetic diversity"
+  ) +
+  
+  common_theme +
+  
+  theme(
+    axis.text.x = element_text(
+      angle = 35,
+      hjust = 1,
+      vjust = 1,
+      size = 10
+    )
+  )
+
+
+# ==============================================================================
+# 4. BETA-DIVERSITY PANELS
+# ==============================================================================
+
+All_Bray_final <- All_Bray_clean +
+  
+  labs(
+    title = "Bray–Curtis",
+    x = "PCoA1 (24.2%)",
+    y = "PCoA2 (21.8%)"
+  ) +
+  
+  common_theme +
+  
+  theme(
+    axis.text.x = element_text(
+      angle = 0,
+      hjust = 0.5
+    )
+  )
+
+
+All_Jaccard_final <- All_Jaccard_clean +
+  
+  labs(
+    title = "Jaccard",
+    x = "PCoA1 (34.8%)",
+    y = "PCoA2 (20.3%)"
+  ) +
+  
+  common_theme +
+  
+  theme(
+    axis.text.x = element_text(
+      angle = 0,
+      hjust = 0.5
+    )
+  )
+
+
+# ==============================================================================
+# 5. EXPLICIT 2 × 2 LAYOUT
+#
+# A  B
+# C  D
+# ==============================================================================
+
+diversity_panel <- patchwork::wrap_plots(
+  
+  A = shan_all_final,
+  B = pd_all_final,
+  C = All_Bray_final,
+  D = All_Jaccard_final,
+  
+  design = "
+  AB
+  CD
+  ",
+  
+  guides = "collect"
+) +
+  
+  patchwork::plot_annotation(
+    
+    tag_levels = "A",
+    
+    theme = theme(
+      plot.tag = element_text(
+        size = 18,
+        face = "bold"
+      )
+    )
+  ) &
+  
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.justification = "center"
+  )
+
+
+# ==============================================================================
+# 6. DISPLAY
+# ==============================================================================
+
+print(diversity_panel)
+
+
+# ==============================================================================
+# 7. SAVE
+# ==============================================================================
+pdf("Output/Graphs/alpha_beta_diversity.pdf", width = 8, height = 8)
+print(diversity_panel)
+dev.off()
