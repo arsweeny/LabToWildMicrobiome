@@ -28,8 +28,10 @@ library(TMB)
 library(ggregplot)
 library(emmeans)
 library(psych)
+library(ggpubr)
+library(car)
 
-source("Scripts/0_DataPrep_Baseline.R") 
+source("Scripts/00_DataPrep_Baseline.R") 
 # runs data prep & sets up all the data subsets 
 
 
@@ -38,7 +40,7 @@ source("Scripts/0_DataPrep_Baseline.R")
 
 ## Rarefy - subsampling reads from each sample without replacement to a constant depth)
 ps_rare <- phyloseq::rarefy_even_depth(ps_all, rngseed = 123, replace = FALSE)
-## 309 OTUs were removed because they are no longer present in any sample
+## 315 OTUs were removed because they are no longer present in any sample
 
 head(phyloseq::sample_sums(ps_rare)) 
 ## sequence depth set to 15,857 
@@ -160,8 +162,11 @@ sim_all_R <- ps_meta_rare %>%
 # panel plot of all alpha
 alpha_pan <- obs_all_R|pd_all_R|shan_all_R|sim_all_R 
 
+# panel plot of just shannon and faiths PD
+alpha_pan <- ggarrange(shan_all_R, pd_all_R, labels = c("A","B"), nrow = 1)
+
 ## save final plot
-pdf("Output/Graphs/alpha_diversity.pdf", width = 10, height = 5)
+pdf("Output/Graphs/alpha_diversity.pdf", width = 6, height = 5)
 print(alpha_pan)
 dev.off()
 
@@ -188,6 +193,8 @@ summary(obsl_glmm1)
 emm <- emmeans(obsl_glmm1, ~ SampleOrigin)
 pairs(emm, adjust = "tukey")
 
+Anova(obsl_glmm1, type = 3)
+
 library(DHARMa)
 res <- simulateResiduals(obsl_glmm1)
 plot(res)
@@ -205,6 +212,8 @@ summary(fpdl_glmm1)
 emm <- emmeans(fpdl_glmm1, ~ SampleOrigin)
 pairs(emm, adjust = "tukey")  
 
+Anova(fpdl_glmm1, type = 3)
+
 res <- simulateResiduals(fpdl_glmm1)
 plot(res)
 
@@ -221,6 +230,8 @@ summary(shan_glm1)
 
 emm <- emmeans(shan_glm1, ~ SampleOrigin)
 pairs(emm, adjust = "tukey")  
+
+Anova(shan_glm1, type = 3)
 
 res <- simulateResiduals(shan_glm1)
 plot(res)
@@ -255,6 +266,8 @@ summary(siml_glmm1)
 emm <- emmeans(siml_glmm1, ~ SampleOrigin)
 pairs(emm, adjust = "tukey") 
 
+Anova(siml_glmm1, type = 3)
+
 res <- simulateResiduals(siml_glmm1)
 plot(res)
 
@@ -266,51 +279,35 @@ testOutliers(res)
 
 # export alpha diversity results into excel table -------------------------
 
+library(glmmTMB)
+library(car)
+library(emmeans)
 library(broom.mixed)
+library(broom)
 library(dplyr)
 library(openxlsx)
-library(emmeans)
-library(dplyr)
-library(broom)
 
-## GLMM fixed effects table
-obs_results <- broom.mixed::tidy(
-  obsl_glmm1,
-  effects = "fixed",
-  conf.int = TRUE
-) %>%
-  mutate(Metric = "Observed richness")
+## Store models
+alpha_models <- list(
+  "Observed richness" = obsl_glmm1,
+  "Faith PD" = fpdl_glmm1,
+  "Shannon" = shan_glm1,
+  "log(Inverse Simpson)" = siml_glmm1
+)
 
 
-pd_results <- broom.mixed::tidy(
-  fpdl_glmm1,
-  effects = "fixed",
-  conf.int = TRUE
-) %>%
-  mutate(Metric = "Faith PD")
-
-
-shan_results <- broom.mixed::tidy(
-  shan_glm1,
-  effects = "fixed",
-  conf.int = TRUE
-) %>%
-  mutate(Metric = "Shannon")
-
-
-sim_results <- broom.mixed::tidy(
-  siml_glmm1,
-  effects = "fixed",
-  conf.int = TRUE
-) %>%
-  mutate(Metric = "log(Inverse Simpson)")
-
-alpha_GLMM_results <- bind_rows(
-  obs_results,
-  pd_results,
-  shan_results,
-  sim_results
-) %>%
+## GLMM fixed effects
+alpha_GLMM_results <- lapply(names(alpha_models), function(metric){
+  
+  broom.mixed::tidy(
+    alpha_models[[metric]],
+    effects = "fixed",
+    conf.int = TRUE
+  ) %>%
+    mutate(Metric = metric)
+  
+}) %>%
+  bind_rows() %>%
   select(
     Metric,
     term,
@@ -320,72 +317,64 @@ alpha_GLMM_results <- bind_rows(
     p.value,
     conf.low,
     conf.high
-  )
-
-alpha_GLMM_results <- alpha_GLMM_results %>%
+  ) %>%
   mutate(
     significance = case_when(
       p.value < 0.001 ~ "***",
-      p.value < 0.01 ~ "**",
-      p.value < 0.05 ~ "*",
-      p.value < 0.1 ~ ".",
-      TRUE ~ ""
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      p.value < 0.1   ~ ".",
+      TRUE            ~ ""
     )
   )
 
-## model statistics
-model_stats <- data.frame(
-  Metric = c(
-    "Observed richness",
-    "Faith PD",
-    "Shannon",
-    "log(Inverse Simpson)"
-  ),
-  Transformation = c(
-    "None",
-    "None",
-    "None",
-    "Log"
-  ),
-  Family = rep("Gaussian", 4),
-  Random_effects = rep("SeqPlate + mouse_ID_dataset", 4),
-  AIC = c(
-    AIC(obsl_glmm1),
-    AIC(fpdl_glmm1),
-    AIC(shan_glm1),
-    AIC(siml_glmm1)
-  ),
-  BIC = c(
-    BIC(obsl_glmm1),
-    BIC(fpdl_glmm1),
-    BIC(shan_glm1),
-    BIC(siml_glmm1)
-  ),
-  N = rep(nobs(obsl_glmm1), 4)
-)
 
-model_stats
-
-## tukey comparisons
-alpha_emm <- list(
-  "Observed richness" = obsl_glmm1,
-  "Faith PD" = fpdl_glmm1,
-  "Shannon" = shan_glm1,
-  "log(Inverse Simpson)" = siml_glmm1
-)
-
-tukey_results <- lapply(names(alpha_emm), function(x) {
+## Type III Wald chi-square tests
+tidy_type3_anova <- function(model, metric){
   
-  emmeans(alpha_emm[[x]], ~ SampleOrigin) %>%
-    pairs(adjust = "tukey") %>%
-    summary(infer = TRUE) %>%
-    as.data.frame() %>%
-    mutate(Metric = x)
+  x <- as.data.frame(car::Anova(model, type = 3))
+  
+  x$Predictor <- rownames(x)
+  rownames(x) <- NULL
+  
+  x %>%
+    filter(Predictor != "(Intercept)") %>%
+    transmute(
+      Metric = metric,
+      Predictor,
+      Chisq,
+      Df,
+      p.value = `Pr(>Chisq)`,
+      significance = case_when(
+        p.value < 0.001 ~ "***",
+        p.value < 0.01  ~ "**",
+        p.value < 0.05  ~ "*",
+        p.value < 0.1   ~ ".",
+        TRUE            ~ ""
+      )
+    )
+  
+}
+
+anova_results <- lapply(names(alpha_models), function(metric){
+  
+  tidy_type3_anova(alpha_models[[metric]], metric)
   
 }) %>%
   bind_rows()
 
-tukey_results <- tukey_results %>%
+
+## Tukey post hoc comparisons
+tukey_results <- lapply(names(alpha_models), function(metric){
+  
+  emmeans(alpha_models[[metric]], ~ SampleOrigin) %>%
+    pairs(adjust = "tukey") %>%
+    summary(infer = TRUE) %>%
+    as.data.frame() %>%
+    mutate(Metric = metric)
+  
+}) %>%
+  bind_rows() %>%
   select(
     Metric,
     contrast,
@@ -398,31 +387,67 @@ tukey_results <- tukey_results %>%
     asymp.UCL
   )
 
-tukey_results
 
-## random effects
-random_effects <- lapply(names(alpha_models), function(x) {
+## Model statistics
+model_stats <- data.frame(
+  
+  Metric = names(alpha_models),
+  
+  Transformation = c(
+    "None",
+    "None",
+    "None",
+    "Log"
+  ),
+  
+  Family = rep("Gaussian", length(alpha_models)),
+  
+  Random_effects =
+    rep("SeqPlate + mouse_ID_dataset", length(alpha_models)),
+  
+  AIC = sapply(alpha_models, AIC),
+  
+  BIC = sapply(alpha_models, BIC),
+  
+  N = sapply(alpha_models, nobs)
+  
+)
+
+
+## Random effect variance
+random_effects <- lapply(names(alpha_models), function(metric){
   
   broom.mixed::tidy(
-    alpha_models[[x]],
+    alpha_models[[metric]],
     effects = "ran_pars"
   ) %>%
-    mutate(Metric = x)
+    mutate(Metric = metric)
   
 }) %>%
   bind_rows()
 
-random_effects
 
-openxlsx::write.xlsx(
+## Export workbook
+write.xlsx(
+  
   list(
+    
     GLMM_fixed_effects = alpha_GLMM_results,
+    
+    Type_III_ANOVA = anova_results,
+    
     Tukey_posthoc = tukey_results,
+    
     Model_statistics = model_stats,
-    Random_Effects = random_effects
+    
+    Random_effects = random_effects
+    
   ),
+  
   file = "Output/Rarefied_alpha_diversity_GLMM_results.xlsx",
+  
   rowNames = FALSE
+  
 )
 
 # # NON RAREFACTION analysis ------------------------------------------------
