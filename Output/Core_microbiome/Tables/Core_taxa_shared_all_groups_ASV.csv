@@ -1,0 +1,4 @@
+taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
+ASV1,ASV1,ASV,1,1,0.9722222222222222,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+ASV2,ASV2,ASV,1,1,0.9722222222222222,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+ASV3,ASV3,ASV,0.9166666666666666,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm

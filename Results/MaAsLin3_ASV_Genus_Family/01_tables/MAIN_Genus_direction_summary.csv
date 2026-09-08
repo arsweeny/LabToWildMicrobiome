@@ -1,0 +1,13 @@
+contrast,direction,n_features
+Lab-like:As vs Wild-like:As,Higher in Lab-like:As,11
+Lab-like:As vs Wild-like:As,Higher in Wild-like:As,11
+Lab-like:As vs Wild:As,Higher in Lab-like:As,5
+Lab-like:As vs Wild:As,Higher in Wild:As,12
+Lab:Mm vs Lab-like:As,Higher in Lab-like:As,7
+Lab:Mm vs Lab-like:As,Higher in Lab:Mm,13
+Lab:Mm vs Wild-like:As,Higher in Lab:Mm,7
+Lab:Mm vs Wild-like:As,Higher in Wild-like:As,13
+Lab:Mm vs Wild:As,Higher in Lab:Mm,9
+Lab:Mm vs Wild:As,Higher in Wild:As,13
+Wild-like:As vs Wild:As,Higher in Wild-like:As,5
+Wild-like:As vs Wild:As,Higher in Wild:As,7

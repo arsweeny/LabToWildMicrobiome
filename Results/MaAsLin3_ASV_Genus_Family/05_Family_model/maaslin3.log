@@ -1,0 +1,135 @@
+2026-09-08 14:08:30.790582 INFO::Writing function arguments to log file
+2026-09-08 14:08:30.795561 DEBUG::Function arguments
+2026-09-08 14:08:30.799128 DEBUG::Output folder: Results/MaAsLin3_ASV_Genus_Family/05_Family_model
+2026-09-08 14:08:30.801479 DEBUG::Formula: ~SampleOrigin + Sex + log10_reads + (1 | mouse_ID_dataset)
+2026-09-08 14:08:30.80358 DEBUG::Fixed effects:
+2026-09-08 14:08:30.80577 DEBUG::Reference:
+2026-09-08 14:08:30.808158 DEBUG::Random effects:
+2026-09-08 14:08:30.810331 DEBUG::Group effects:
+2026-09-08 14:08:30.813151 DEBUG::Ordered effects:
+2026-09-08 14:08:30.814261 DEBUG::Strata effects:
+2026-09-08 14:08:30.815881 DEBUG::Min Abundance: 0.000000
+2026-09-08 14:08:30.81736 DEBUG::Min Prevalence: 0.000000
+2026-09-08 14:08:30.820278 DEBUG::Max Prevalence: 1.010000
+2026-09-08 14:08:30.823277 DEBUG::Zero Threshold: 0.000000
+2026-09-08 14:08:30.825653 DEBUG::Min variance: 0.000000
+2026-09-08 14:08:30.827994 DEBUG::Max significance: 0.050000
+2026-09-08 14:08:30.829216 DEBUG::Normalization: NONE
+2026-09-08 14:08:30.830257 DEBUG::Transform: LOG
+2026-09-08 14:08:30.831797 DEBUG::Correction method: BH
+2026-09-08 14:08:30.833721 DEBUG::Standardize: TRUE
+2026-09-08 14:08:30.83568 DEBUG::Abundance median comparison: TRUE
+2026-09-08 14:08:30.838262 DEBUG::Prevalence median comparison: FALSE
+2026-09-08 14:08:30.840271 DEBUG::Abundance median comparison threshold: 0
+2026-09-08 14:08:30.842555 DEBUG::Prevalence median comparison threshold: 0
+2026-09-08 14:08:30.844083 DEBUG::Subtract median: FALSE
+2026-09-08 14:08:30.84553 DEBUG::Warn prevalence: FALSE
+2026-09-08 14:08:30.848095 DEBUG::Small random effects: FALSE
+2026-09-08 14:08:30.850277 DEBUG::Augment: TRUE
+2026-09-08 14:08:30.852463 DEBUG::Evaluate only: abundance
+2026-09-08 14:08:30.854993 DEBUG::Cores: 1
+2026-09-08 14:08:30.85706 DEBUG::Balanced Summary plot: FALSE
+2026-09-08 14:08:30.859899 INFO::Verifying options selected are valid
+2026-09-08 14:08:30.86293 INFO::Determining format of input files
+2026-09-08 14:08:30.868161 INFO::Input format is data samples as rows and metadata samples as rows
+2026-09-08 14:08:30.872384 DEBUG::A total of 236 samples were found in both the data and metadata
+2026-09-08 14:08:30.875862 DEBUG::Reordering data/metadata to use same sample ordering
+2026-09-08 14:08:30.880643 INFO::Running selected normalization method: NONE
+2026-09-08 14:08:30.887987 INFO::Creating output feature tables folder
+2026-09-08 14:08:30.895315 INFO::Writing normalized data to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/features/data_norm.tsv
+2026-09-08 14:08:30.946394 INFO::Filter data based on min abundance, min prevalence, and max prevalence
+2026-09-08 14:08:30.95306 INFO::Total samples in data: 236
+2026-09-08 14:08:30.957552 INFO::Min samples required with min abundance for a feature not to be filtered: 0.000000
+2026-09-08 14:08:30.963391 INFO::Max samples allowed with min abundance for a feature not to be filtered: 238.360000
+2026-09-08 14:08:30.989797 INFO::Total filtered features: 0
+2026-09-08 14:08:30.993821 INFO::Filtered feature names from abundance, min prevalence, and max prevalence filtering:
+2026-09-08 14:08:31.087747 INFO::Total features filtered by non-zero variance filtering: 0
+2026-09-08 14:08:31.093154 INFO::Filtered feature names from variance filtering:
+2026-09-08 14:08:31.098275 INFO::Writing filtered data to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/features/filtered_data.tsv
+2026-09-08 14:08:31.1651 INFO::Running selected transform method: LOG
+2026-09-08 14:08:31.331069 INFO::Writing normalized, filtered, transformed data to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/features/data_transformed.tsv
+2026-09-08 14:08:31.395552 INFO::Factor detected for categorial metadata 'SampleOrigin'. Using as-is.
+2026-09-08 14:08:31.40202 INFO::Factor detected for categorial metadata 'Sex'. Using as-is.
+2026-09-08 14:08:31.414265 INFO::Applying z-score to standardize continuous metadata
+2026-09-08 14:08:31.632307 INFO::Running the linear model component
+2026-09-08 14:08:31.647951 DEBUG::Object: augment, Size: 56
+2026-09-08 14:08:31.650333 DEBUG::Object: cluster, Size: 0
+2026-09-08 14:08:31.652449 DEBUG::Object: cores, Size: 56
+2026-09-08 14:08:31.65466 DEBUG::Object: correction, Size: 112
+2026-09-08 14:08:31.658738 DEBUG::Object: extract_out, Size: 2424
+2026-09-08 14:08:31.662779 DEBUG::Object: feature_specific_covariate, Size: 0
+2026-09-08 14:08:31.665939 DEBUG::Object: feature_specific_covariate_name, Size: 0
+2026-09-08 14:08:31.668147 DEBUG::Object: feature_specific_covariate_record, Size: 0
+2026-09-08 14:08:31.671342 DEBUG::Object: features, Size: 107072
+2026-09-08 14:08:31.674519 DEBUG::Object: formula, Size: 2016
+2026-09-08 14:08:31.676334 DEBUG::Object: fun_list, Size: 124640
+2026-09-08 14:08:31.680489 DEBUG::Object: func_to_run, Size: 435336
+2026-09-08 14:08:31.684345 DEBUG::Object: groups, Size: 48
+2026-09-08 14:08:31.687755 DEBUG::Object: median_comparison, Size: 56
+2026-09-08 14:08:31.692106 DEBUG::Object: median_comparison_threshold, Size: 56
+2026-09-08 14:08:31.69738 DEBUG::Object: metadata, Size: 140376
+2026-09-08 14:08:31.699189 DEBUG::Object: model, Size: 112
+2026-09-08 14:08:31.701271 DEBUG::Object: model_function, Size: 71464
+2026-09-08 14:08:31.704805 DEBUG::Object: ordereds, Size: 48
+2026-09-08 14:08:31.708058 DEBUG::Object: random_effects_formula, Size: 2016
+2026-09-08 14:08:31.710317 DEBUG::Object: ranef_function, Size: 1240
+2026-09-08 14:08:31.714097 DEBUG::Object: save_models, Size: 56
+2026-09-08 14:08:31.718002 DEBUG::Object: small_random_effects, Size: 56
+2026-09-08 14:08:31.722616 DEBUG::Object: strata, Size: 48
+2026-09-08 14:08:31.727867 DEBUG::Object: subtract_median, Size: 56
+2026-09-08 14:08:31.736029 DEBUG::Object: summary_function, Size: 51456
+2026-09-08 14:08:31.738817 DEBUG::Object: func_to_run, Size: 435336
+2026-09-08 14:08:31.753773 INFO::Fitting model to feature number 1, Lactobacillaceae
+2026-09-08 14:08:32.066455 INFO::Fitting model to feature number 2, Muribaculaceae
+2026-09-08 14:08:32.31704 INFO::Fitting model to feature number 3, Lachnospiraceae
+2026-09-08 14:08:32.528268 INFO::Fitting model to feature number 4, Rikenellaceae
+2026-09-08 14:08:32.770688 INFO::Fitting model to feature number 5, Eggerthellaceae
+2026-09-08 14:08:32.930963 INFO::Fitting model to feature number 6, Oscillospiraceae
+2026-09-08 14:08:33.196916 INFO::Fitting model to feature number 7, Ruminococcaceae
+2026-09-08 14:08:33.440642 INFO::Fitting model to feature number 8, Enterococcaceae
+2026-09-08 14:08:33.693233 INFO::Fitting model to feature number 9, Desulfovibrionaceae
+2026-09-08 14:08:33.967543 INFO::Fitting model to feature number 10, Anaerovoracaceae
+2026-09-08 14:08:34.194433 INFO::Fitting model to feature number 11, Bacteroidaceae
+2026-09-08 14:08:34.422043 INFO::Fitting model to feature number 12, Staphylococcaceae
+2026-09-08 14:08:34.57093 INFO::Fitting model to feature number 13, Peptococcaceae
+2026-09-08 14:08:34.854685 INFO::Fitting model to feature number 14, Streptococcaceae
+2026-09-08 14:08:34.995729 INFO::Fitting model to feature number 15, Corynebacteriaceae
+2026-09-08 14:08:35.14465 INFO::Fitting model to feature number 16, Deferribacteraceae
+2026-09-08 14:08:35.366558 INFO::Fitting model to feature number 17, Gemellaceae
+2026-09-08 14:08:35.579424 INFO::Fitting model to feature number 18, Marinifilaceae
+2026-09-08 14:08:35.795904 INFO::Fitting model to feature number 19, Acholeplasmataceae
+2026-09-08 14:08:35.955839 INFO::Fitting model to feature number 20, Butyricicoccaceae
+2026-09-08 14:08:36.269633 INFO::Fitting model to feature number 21, Helicobacteraceae
+2026-09-08 14:08:36.400475 INFO::Fitting model to feature number 22, Bifidobacteriaceae
+2026-09-08 14:08:36.530672 INFO::Fitting model to feature number 23, Sutterellaceae
+2026-09-08 14:08:36.717858 INFO::Fitting model to feature number 24, Enterobacteriaceae
+2026-09-08 14:08:36.952044 INFO::Fitting model to feature number 25, Clostridiaceae
+2026-09-08 14:08:37.228335 INFO::Fitting model to feature number 26, Rs-E47 termite group
+2026-09-08 14:08:37.455162 INFO::Fitting model to feature number 27, Atopobiaceae
+2026-09-08 14:08:37.62149 INFO::Fitting model to feature number 28, Erysipelotrichaceae
+2026-09-08 14:08:37.862208 INFO::Fitting model to feature number 29, Tannerellaceae
+2026-09-08 14:08:38.15325 INFO::Fitting model to feature number 30, UCG-010
+2026-09-08 14:08:38.283574 INFO::Fitting model to feature number 31, Erysipelatoclostridiaceae
+2026-09-08 14:08:38.434913 INFO::Fitting model to feature number 32, Prevotellaceae
+2026-09-08 14:08:38.528617 INFO::Fitting model to feature number 33, Paracaedibacteraceae
+2026-09-08 14:08:38.667016 INFO::Fitting model to feature number 34, [Eubacterium] coprostanoligenes group
+2026-09-08 14:08:38.886868 INFO::Fitting model to feature number 35, Anaerofustaceae
+2026-09-08 14:08:39.109749 INFO::Fitting model to feature number 36, Monoglobaceae
+2026-09-08 14:08:39.335637 INFO::Fitting model to feature number 37, Defluviitaleaceae
+2026-09-08 14:08:39.365833 INFO::Fitting model to feature number 38, Mycoplasmataceae
+2026-09-08 14:08:39.488121 INFO::Fitting model to feature number 39, Christensenellaceae
+2026-09-08 14:08:39.701388 INFO::Fitting model to feature number 40, Saccharimonadaceae
+2026-09-08 14:08:39.919374 INFO::Fitting model to feature number 41, Puniceicoccaceae
+2026-09-08 14:08:40.056914 INFO::Fitting model to feature number 42, Actinomycetaceae
+2026-09-08 14:08:40.315802 INFO::Fitting model to feature number 43, Carnobacteriaceae
+2026-09-08 14:08:40.579026 INFO::Fitting model to feature number 44, Micrococcaceae
+2026-09-08 14:08:40.838249 INFO::Performing tests against medians
+2026-09-08 14:08:45.925271 INFO::Counting total values for each feature
+2026-09-08 14:08:45.956994 INFO::Creating fits folder
+2026-09-08 14:08:45.96254 INFO::Writing model objects to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/fits/models_linear.rds
+2026-09-08 14:08:47.553622 INFO::Writing residuals to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/fits/residuals_linear.rds
+2026-09-08 14:08:47.863807 INFO::Writing fitted values to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/fits/fitted_linear.rds
+2026-09-08 14:08:47.889971 INFO::Writing extracted random effects to file Results/MaAsLin3_ASV_Genus_Family/05_Family_model/fits/ranef_linear.rds
+2026-09-08 14:08:47.918508 INFO::Writing all the results to file (ordered 
+            by increasing individual q-values): Results/MaAsLin3_ASV_Genus_Family/05_Family_model/all_results.tsv
+2026-09-08 14:08:47.94794 INFO::Writing the significant results without errors (those which have joint q-values less than or equal to the threshold of 0.050000 ) to file (ordered by increasing individual q-values): Results/MaAsLin3_ASV_Genus_Family/05_Family_model/significant_results.tsv

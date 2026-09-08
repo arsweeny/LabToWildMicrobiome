@@ -1,0 +1,9 @@
+taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
+Bacteria|Actinobacteriota|Coriobacteriia|Coriobacteriales,Coriobacteriales,Order,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Bacteroidota|Bacteroidia|Bacteroidales,Bacteroidales,Order,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Desulfobacterota|Desulfovibrionia|Desulfovibrionales,Desulfovibrionales,Order,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Bacilli|Lactobacillales,Lactobacillales,Order,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Clostridia|Clostridia vadinBB60 group,Clostridia vadinBB60 group,Order,0.9583333333333334,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Clostridia|Lachnospirales,Lachnospirales,Order,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Clostridia|Oscillospirales,Oscillospirales,Order,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Clostridia|Peptostreptococcales-Tissierellales,Peptostreptococcales-Tissierellales,Order,0.9583333333333334,1,0.9722222222222222,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm

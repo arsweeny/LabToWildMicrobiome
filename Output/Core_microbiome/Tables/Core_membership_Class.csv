@@ -1,0 +1,29 @@
+taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
+Bacteria|Acidobacteriota|Acidobacteriae,Acidobacteriae,Class,0,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Actinobacteriota|Acidimicrobiia,Acidimicrobiia,Class,0,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Actinobacteriota|Actinobacteria,Actinobacteria,Class,0.9166666666666666,0.9722222222222222,1,0.5277777777777778,TRUE,TRUE,TRUE,FALSE,3,FALSE,FALSE,Wild:As + Wild-like:As + Lab-like:As
+Bacteria|Actinobacteriota|Coriobacteriia,Coriobacteriia,Class,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Actinobacteriota|Thermoleophilia,Thermoleophilia,Class,0.08333333333333333,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Bacteroidota|Bacteroidia,Bacteroidia,Class,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Bdellovibrionota|Oligoflexia,Oligoflexia,Class,0.041666666666666664,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Campylobacterota|Campylobacteria,Campylobacteria,Class,0.9583333333333334,1,0.08333333333333333,0.05555555555555555,TRUE,TRUE,FALSE,FALSE,2,FALSE,FALSE,Wild:As + Wild-like:As
+Bacteria|Cyanobacteria|Cyanobacteriia,Cyanobacteriia,Class,0,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Cyanobacteria|Vampirivibrionia,Vampirivibrionia,Class,0.5833333333333334,0.5833333333333334,0.5277777777777778,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Deferribacterota|Deferribacteres,Deferribacteres,Class,0.7916666666666666,0.9722222222222222,0.3888888888888889,1,FALSE,TRUE,FALSE,TRUE,2,FALSE,FALSE,Wild-like:As + Lab:Mm
+Bacteria|Desulfobacterota|Desulfovibrionia,Desulfovibrionia,Class,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Elusimicrobiota|Elusimicrobia,Elusimicrobia,Class,0.041666666666666664,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Firmicutes|Bacilli,Bacilli,Class,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Clostridia,Clostridia,Class,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
+Bacteria|Firmicutes|Limnochordia,Limnochordia,Class,0,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Firmicutes|Unclassified_Class,Unclassified_Class,Class,0.08333333333333333,0,0.027777777777777776,0.027777777777777776,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Fusobacteriota|Fusobacteriia,Fusobacteriia,Class,0.041666666666666664,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Myxococcota|Myxococcia,Myxococcia,Class,0.041666666666666664,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Myxococcota|Polyangia,Polyangia,Class,0,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Patescibacteria|Saccharimonadia,Saccharimonadia,Class,0.2916666666666667,0.6388888888888888,0.5555555555555556,0.027777777777777776,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Proteobacteria|Alphaproteobacteria,Alphaproteobacteria,Class,0.8333333333333334,1,0.08333333333333333,0.9722222222222222,FALSE,TRUE,FALSE,TRUE,2,FALSE,FALSE,Wild-like:As + Lab:Mm
+Bacteria|Proteobacteria|Gammaproteobacteria,Gammaproteobacteria,Class,1,0.9722222222222222,0.5,1,TRUE,TRUE,FALSE,TRUE,3,FALSE,FALSE,Wild:As + Wild-like:As + Lab:Mm
+Bacteria|Proteobacteria|Unclassified_Class,Unclassified_Class,Class,0.3333333333333333,1,0.05555555555555555,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
+Bacteria|Spirochaetota|Brachyspirae,Brachyspirae,Class,0,0.1111111111111111,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Unclassified_Phylum|Unclassified_Class,Unclassified_Class,Class,0.16666666666666666,0.1111111111111111,0.1111111111111111,0.1111111111111111,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Verrucomicrobiota|Chlamydiae,Chlamydiae,Class,0.041666666666666664,0,0,0,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group
+Bacteria|Verrucomicrobiota|Verrucomicrobiae,Verrucomicrobiae,Class,0.5,0.6944444444444444,0.027777777777777776,0.3055555555555556,FALSE,FALSE,FALSE,FALSE,0,FALSE,FALSE,Not core in any group

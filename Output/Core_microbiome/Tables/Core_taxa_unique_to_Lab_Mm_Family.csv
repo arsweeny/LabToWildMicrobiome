@@ -1,0 +1,12 @@
+taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
+Bacteria|Bacteroidota|Bacteroidia|Bacteroidales|Prevotellaceae,Prevotellaceae,Family,0,0,0.08333333333333333,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Bacteroidota|Bacteroidia|Bacteroidales|Tannerellaceae,Tannerellaceae,Family,0.041666666666666664,0,0.027777777777777776,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Bacilli|Erysipelotrichales|Erysipelatoclostridiaceae,Erysipelatoclostridiaceae,Family,0.375,0,0,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Bacilli|RF39|Unclassified_Family,Unclassified_Family,Family,0.8333333333333334,0.2777777777777778,0.8888888888888888,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Clostridia|Clostridiales|Clostridiaceae,Clostridiaceae,Family,0.4166666666666667,0.027777777777777776,0,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Clostridia|Lachnospirales|Defluviitaleaceae,Defluviitaleaceae,Family,0,0,0,0.9444444444444444,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Clostridia|Monoglobales|Monoglobaceae,Monoglobaceae,Family,0.7083333333333334,0,0,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Clostridia|Oscillospirales|UCG-010,UCG-010,Family,0.3333333333333333,0,0,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Clostridia|Oscillospirales|[Eubacterium] coprostanoligenes group,[Eubacterium] coprostanoligenes group,Family,0.6666666666666666,0.027777777777777776,0.6388888888888888,1,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Firmicutes|Clostridia|Peptococcales|Peptococcaceae,Peptococcaceae,Family,0.4583333333333333,0.6944444444444444,0.8888888888888888,0.9722222222222222,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
+Bacteria|Proteobacteria|Alphaproteobacteria|Rhodospirillales|Unclassified_Family,Unclassified_Family,Family,0.4166666666666667,0.08333333333333333,0,0.9722222222222222,FALSE,FALSE,FALSE,TRUE,1,FALSE,TRUE,Lab:Mm
