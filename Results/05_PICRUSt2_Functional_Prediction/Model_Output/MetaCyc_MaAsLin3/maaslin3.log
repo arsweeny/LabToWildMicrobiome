@@ -1,0 +1,479 @@
+2026-09-09 19:18:26.078627 INFO::Writing function arguments to log file
+2026-09-09 19:18:26.083899 DEBUG::Function arguments
+2026-09-09 19:18:26.087381 DEBUG::Output folder: Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3
+2026-09-09 19:18:26.090679 DEBUG::Formula: ~SampleOrigin + Sex + log10_reads + (1 | mouse_ID_dataset)
+2026-09-09 19:18:26.093383 DEBUG::Fixed effects:
+2026-09-09 19:18:26.095791 DEBUG::Reference:
+2026-09-09 19:18:26.098037 DEBUG::Random effects:
+2026-09-09 19:18:26.101643 DEBUG::Group effects:
+2026-09-09 19:18:26.104346 DEBUG::Ordered effects:
+2026-09-09 19:18:26.106867 DEBUG::Strata effects:
+2026-09-09 19:18:26.109478 DEBUG::Min Abundance: 0.000000
+2026-09-09 19:18:26.111598 DEBUG::Min Prevalence: 0.000000
+2026-09-09 19:18:26.114428 DEBUG::Max Prevalence: 1.010000
+2026-09-09 19:18:26.116454 DEBUG::Zero Threshold: 0.000000
+2026-09-09 19:18:26.118534 DEBUG::Min variance: 0.000000
+2026-09-09 19:18:26.120497 DEBUG::Max significance: 0.050000
+2026-09-09 19:18:26.12211 DEBUG::Normalization: NONE
+2026-09-09 19:18:26.123995 DEBUG::Transform: LOG
+2026-09-09 19:18:26.126119 DEBUG::Correction method: BH
+2026-09-09 19:18:26.128013 DEBUG::Standardize: TRUE
+2026-09-09 19:18:26.129722 DEBUG::Abundance median comparison: TRUE
+2026-09-09 19:18:26.131434 DEBUG::Prevalence median comparison: FALSE
+2026-09-09 19:18:26.133049 DEBUG::Abundance median comparison threshold: 0
+2026-09-09 19:18:26.134826 DEBUG::Prevalence median comparison threshold: 0
+2026-09-09 19:18:26.137216 DEBUG::Subtract median: FALSE
+2026-09-09 19:18:26.139416 DEBUG::Warn prevalence: FALSE
+2026-09-09 19:18:26.141271 DEBUG::Small random effects: FALSE
+2026-09-09 19:18:26.143125 DEBUG::Augment: TRUE
+2026-09-09 19:18:26.144904 DEBUG::Evaluate only: abundance
+2026-09-09 19:18:26.146695 DEBUG::Cores: 1
+2026-09-09 19:18:26.14874 DEBUG::Balanced Summary plot: FALSE
+2026-09-09 19:18:26.150578 INFO::Verifying options selected are valid
+2026-09-09 19:18:26.153752 INFO::Determining format of input files
+2026-09-09 19:18:26.156841 INFO::Input format is data samples as rows and metadata samples as rows
+2026-09-09 19:18:26.15982 DEBUG::A total of 236 samples were found in both the data and metadata
+2026-09-09 19:18:26.162331 DEBUG::Reordering data/metadata to use same sample ordering
+2026-09-09 19:18:26.168745 INFO::Running selected normalization method: NONE
+2026-09-09 19:18:26.185431 INFO::Creating output feature tables folder
+2026-09-09 19:18:26.190379 INFO::Writing normalized data to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/features/data_norm.tsv
+2026-09-09 19:18:26.831772 INFO::Filter data based on min abundance, min prevalence, and max prevalence
+2026-09-09 19:18:26.834668 INFO::Total samples in data: 236
+2026-09-09 19:18:26.837959 INFO::Min samples required with min abundance for a feature not to be filtered: 0.000000
+2026-09-09 19:18:26.840427 INFO::Max samples allowed with min abundance for a feature not to be filtered: 238.360000
+2026-09-09 19:18:30.180787 INFO::Total filtered features: 0
+2026-09-09 19:18:30.18271 INFO::Filtered feature names from abundance, min prevalence, and max prevalence filtering:
+2026-09-09 19:18:30.191023 INFO::Total features filtered by non-zero variance filtering: 0
+2026-09-09 19:18:30.192625 INFO::Filtered feature names from variance filtering:
+2026-09-09 19:18:30.193954 INFO::Writing filtered data to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/features/filtered_data.tsv
+2026-09-09 19:18:30.985769 INFO::Running selected transform method: LOG
+2026-09-09 19:18:31.412407 INFO::Writing normalized, filtered, transformed data to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/features/data_transformed.tsv
+2026-09-09 19:18:33.184338 INFO::Factor detected for categorial metadata 'SampleOrigin'. Using as-is.
+2026-09-09 19:18:33.756021 INFO::Factor detected for categorial metadata 'Sex'. Using as-is.
+2026-09-09 19:18:33.766047 INFO::Applying z-score to standardize continuous metadata
+2026-09-09 19:18:33.83997 INFO::Running the linear model component
+2026-09-09 19:18:35.821982 DEBUG::Object: augment, Size: 56
+2026-09-09 19:18:35.824706 DEBUG::Object: cluster, Size: 0
+2026-09-09 19:18:35.827431 DEBUG::Object: cores, Size: 56
+2026-09-09 19:18:35.828556 DEBUG::Object: correction, Size: 112
+2026-09-09 19:18:35.833268 DEBUG::Object: extract_out, Size: 2424
+2026-09-09 19:18:35.837852 DEBUG::Object: feature_specific_covariate, Size: 0
+2026-09-09 19:18:35.839867 DEBUG::Object: feature_specific_covariate_name, Size: 0
+2026-09-09 19:18:35.841062 DEBUG::Object: feature_specific_covariate_record, Size: 0
+2026-09-09 19:18:35.844212 DEBUG::Object: features, Size: 792504
+2026-09-09 19:18:35.846781 DEBUG::Object: formula, Size: 2016
+2026-09-09 19:18:35.849225 DEBUG::Object: fun_list, Size: 124640
+2026-09-09 19:18:35.854332 DEBUG::Object: func_to_run, Size: 435336
+2026-09-09 19:18:35.8563 DEBUG::Object: groups, Size: 48
+2026-09-09 19:18:35.860161 DEBUG::Object: median_comparison, Size: 56
+2026-09-09 19:18:35.862225 DEBUG::Object: median_comparison_threshold, Size: 56
+2026-09-09 19:18:35.864407 DEBUG::Object: metadata, Size: 122792
+2026-09-09 19:18:35.86641 DEBUG::Object: model, Size: 112
+2026-09-09 19:18:35.869206 DEBUG::Object: model_function, Size: 71464
+2026-09-09 19:18:35.870752 DEBUG::Object: ordereds, Size: 48
+2026-09-09 19:18:35.874145 DEBUG::Object: random_effects_formula, Size: 2016
+2026-09-09 19:18:35.879017 DEBUG::Object: ranef_function, Size: 1240
+2026-09-09 19:18:35.883563 DEBUG::Object: save_models, Size: 56
+2026-09-09 19:18:35.885252 DEBUG::Object: small_random_effects, Size: 56
+2026-09-09 19:18:35.889261 DEBUG::Object: strata, Size: 48
+2026-09-09 19:18:35.893725 DEBUG::Object: subtract_median, Size: 56
+2026-09-09 19:18:35.896266 DEBUG::Object: summary_function, Size: 51456
+2026-09-09 19:18:35.90181 DEBUG::Object: func_to_run, Size: 435336
+2026-09-09 19:18:35.911283 INFO::Fitting model to feature number 1, 14DICHLORBENZDEG-PWY
+2026-09-09 19:18:36.172858 INFO::Fitting model to feature number 2, 1CMET2-PWY
+2026-09-09 19:18:36.426603 INFO::Fitting model to feature number 3, ALLANTOINDEG-PWY
+2026-09-09 19:18:36.677187 INFO::Fitting model to feature number 4, ANAEROFRUCAT-PWY
+2026-09-09 19:18:36.942434 INFO::Fitting model to feature number 5, ANAGLYCOLYSIS-PWY
+2026-09-09 19:18:37.202265 INFO::Fitting model to feature number 6, ARG+POLYAMINE-SYN
+2026-09-09 19:18:37.528686 INFO::Fitting model to feature number 7, ARGININE-SYN4-PWY
+2026-09-09 19:18:37.863863 INFO::Fitting model to feature number 8, ARGSYN-PWY
+2026-09-09 19:18:38.213486 INFO::Fitting model to feature number 9, ARGSYNBSUB-PWY
+2026-09-09 19:18:38.428578 INFO::Fitting model to feature number 10, ARO-PWY
+2026-09-09 19:18:38.78667 INFO::Fitting model to feature number 11, ASPASN-PWY
+2026-09-09 19:18:39.106295 INFO::Fitting model to feature number 12, AST-PWY
+2026-09-09 19:18:39.43402 INFO::Fitting model to feature number 13, BRANCHED-CHAIN-AA-SYN-PWY
+2026-09-09 19:18:39.769087 INFO::Fitting model to feature number 14, CALVIN-PWY
+2026-09-09 19:18:40.073278 INFO::Fitting model to feature number 15, CARNMET-PWY
+2026-09-09 19:18:40.362439 INFO::Fitting model to feature number 16, CATECHOL-ORTHO-CLEAVAGE-PWY
+2026-09-09 19:18:40.622772 INFO::Fitting model to feature number 17, CITRULBIO-PWY
+2026-09-09 19:18:40.926969 INFO::Fitting model to feature number 18, COA-PWY
+2026-09-09 19:18:41.083329 INFO::Fitting model to feature number 19, COA-PWY-1
+2026-09-09 19:18:41.361259 INFO::Fitting model to feature number 20, COBALSYN-PWY
+2026-09-09 19:18:42.104107 INFO::Fitting model to feature number 21, CODH-PWY
+2026-09-09 19:18:42.301872 INFO::Fitting model to feature number 22, COLANSYN-PWY
+2026-09-09 19:18:42.78963 INFO::Fitting model to feature number 23, COMPLETE-ARO-PWY
+2026-09-09 19:18:43.08411 INFO::Fitting model to feature number 24, CRNFORCAT-PWY
+2026-09-09 19:18:43.445888 INFO::Fitting model to feature number 25, DAPLYSINESYN-PWY
+2026-09-09 19:18:43.789498 INFO::Fitting model to feature number 26, DARABCATK12-PWY
+2026-09-09 19:18:44.236864 INFO::Fitting model to feature number 27, DENITRIFICATION-PWY
+2026-09-09 19:18:44.418459 INFO::Fitting model to feature number 28, DENOVOPURINE2-PWY
+2026-09-09 19:18:44.643355 INFO::Fitting model to feature number 29, DHGLUCONATE-PYR-CAT-PWY
+2026-09-09 19:18:44.910022 INFO::Fitting model to feature number 30, DTDPRHAMSYN-PWY
+2026-09-09 19:18:45.149633 INFO::Fitting model to feature number 31, ECASYN-PWY
+2026-09-09 19:18:45.418569 INFO::Fitting model to feature number 32, FAO-PWY
+2026-09-09 19:18:45.569894 INFO::Fitting model to feature number 33, FERMENTATION-PWY
+2026-09-09 19:18:45.944001 INFO::Fitting model to feature number 34, FOLSYN-PWY
+2026-09-09 19:18:46.102625 INFO::Fitting model to feature number 35, FUC-RHAMCAT-PWY
+2026-09-09 19:18:46.324468 INFO::Fitting model to feature number 36, FUCCAT-PWY
+2026-09-09 19:18:46.562407 INFO::Fitting model to feature number 37, GALACTARDEG-PWY
+2026-09-09 19:18:46.819979 INFO::Fitting model to feature number 38, GALACTITOLCAT-PWY
+2026-09-09 19:18:47.072551 INFO::Fitting model to feature number 39, GLCMANNANAUT-PWY
+2026-09-09 19:18:47.303254 INFO::Fitting model to feature number 40, GLUCARDEG-PWY
+2026-09-09 19:18:47.466111 INFO::Fitting model to feature number 41, GLUCARGALACTSUPER-PWY
+2026-09-09 19:18:47.75142 INFO::Fitting model to feature number 42, GLUCONEO-PWY
+2026-09-09 19:18:48.01326 INFO::Fitting model to feature number 43, GLUCOSE1PMETAB-PWY
+2026-09-09 19:18:48.260597 INFO::Fitting model to feature number 44, GLUDEG-I-PWY
+2026-09-09 19:18:48.498386 INFO::Fitting model to feature number 45, GLUTORN-PWY
+2026-09-09 19:18:48.750574 INFO::Fitting model to feature number 46, GLYCOCAT-PWY
+2026-09-09 19:18:48.996623 INFO::Fitting model to feature number 47, GLYCOGENSYNTH-PWY
+2026-09-09 19:18:49.307618 INFO::Fitting model to feature number 48, GLYCOL-GLYOXDEG-PWY
+2026-09-09 19:18:49.550179 INFO::Fitting model to feature number 49, GLYCOLYSIS
+2026-09-09 19:18:49.883243 INFO::Fitting model to feature number 50, GLYCOLYSIS-E-D
+2026-09-09 19:18:50.109237 INFO::Fitting model to feature number 51, GLYOXYLATE-BYPASS
+2026-09-09 19:18:50.347215 INFO::Fitting model to feature number 52, GOLPDLCAT-PWY
+2026-09-09 19:18:50.593083 INFO::Fitting model to feature number 53, HEME-BIOSYNTHESIS-II
+2026-09-09 19:18:50.759222 INFO::Fitting model to feature number 54, HEME-BIOSYNTHESIS-II-1
+2026-09-09 19:18:51.113677 INFO::Fitting model to feature number 55, HEMESYN2-PWY
+2026-09-09 19:18:51.263824 INFO::Fitting model to feature number 56, HEXITOLDEGSUPER-PWY
+2026-09-09 19:18:51.487927 INFO::Fitting model to feature number 57, HISDEG-PWY
+2026-09-09 19:18:51.74148 INFO::Fitting model to feature number 58, HISTSYN-PWY
+2026-09-09 19:18:51.984043 INFO::Fitting model to feature number 59, HOMOSER-METSYN-PWY
+2026-09-09 19:18:52.132223 INFO::Fitting model to feature number 60, HSERMETANA-PWY
+2026-09-09 19:18:52.36692 INFO::Fitting model to feature number 61, ILEUSYN-PWY
+2026-09-09 19:18:52.605888 INFO::Fitting model to feature number 62, KDO-NAGLIPASYN-PWY
+2026-09-09 19:18:52.849992 INFO::Fitting model to feature number 63, KETOGLUCONMET-PWY
+2026-09-09 19:18:53.122921 INFO::Fitting model to feature number 64, LACTOSECAT-PWY
+2026-09-09 19:18:53.340265 INFO::Fitting model to feature number 65, LIPASYN-PWY
+2026-09-09 19:18:53.52203 INFO::Fitting model to feature number 66, MET-SAM-PWY
+2026-09-09 19:18:53.886527 INFO::Fitting model to feature number 67, METH-ACETATE-PWY
+2026-09-09 19:18:54.055206 INFO::Fitting model to feature number 68, METHGLYUT-PWY
+2026-09-09 19:18:54.277973 INFO::Fitting model to feature number 69, METSYN-PWY
+2026-09-09 19:18:54.510767 INFO::Fitting model to feature number 70, NAD-BIOSYNTHESIS-II
+2026-09-09 19:18:54.766998 INFO::Fitting model to feature number 71, NAGLIPASYN-PWY
+2026-09-09 19:18:54.915567 INFO::Fitting model to feature number 72, NONMEVIPP-PWY
+2026-09-09 19:18:55.151462 INFO::Fitting model to feature number 73, NONOXIPENT-PWY
+2026-09-09 19:18:55.394821 INFO::Fitting model to feature number 74, OANTIGEN-PWY
+2026-09-09 19:18:55.638039 INFO::Fitting model to feature number 75, ORNDEG-PWY
+2026-09-09 19:18:55.882513 INFO::Fitting model to feature number 76, P101-PWY
+2026-09-09 19:18:56.150648 INFO::Fitting model to feature number 77, P105-PWY
+2026-09-09 19:18:56.308738 INFO::Fitting model to feature number 78, P108-PWY
+2026-09-09 19:18:56.648783 INFO::Fitting model to feature number 79, P125-PWY
+2026-09-09 19:18:56.812959 INFO::Fitting model to feature number 80, P163-PWY
+2026-09-09 19:18:57.073017 INFO::Fitting model to feature number 81, P164-PWY
+2026-09-09 19:18:57.360641 INFO::Fitting model to feature number 82, P185-PWY
+2026-09-09 19:18:57.562358 INFO::Fitting model to feature number 83, P221-PWY
+2026-09-09 19:18:57.794871 INFO::Fitting model to feature number 84, P23-PWY
+2026-09-09 19:18:57.996972 INFO::Fitting model to feature number 85, P341-PWY
+2026-09-09 19:18:58.167548 INFO::Fitting model to feature number 86, P381-PWY
+2026-09-09 19:18:58.452005 INFO::Fitting model to feature number 87, P4-PWY
+2026-09-09 19:18:58.616762 INFO::Fitting model to feature number 88, P42-PWY
+2026-09-09 19:18:58.864619 INFO::Fitting model to feature number 89, P441-PWY
+2026-09-09 19:18:59.114616 INFO::Fitting model to feature number 90, P461-PWY
+2026-09-09 19:18:59.267721 INFO::Fitting model to feature number 91, P562-PWY
+2026-09-09 19:18:59.569544 INFO::Fitting model to feature number 92, PANTO-PWY
+2026-09-09 19:18:59.72891 INFO::Fitting model to feature number 93, PANTOSYN-PWY
+2026-09-09 19:18:59.974814 INFO::Fitting model to feature number 94, PENTOSE-P-PWY
+2026-09-09 19:19:00.249241 INFO::Fitting model to feature number 95, PEPTIDOGLYCANSYN-PWY
+2026-09-09 19:19:00.475316 INFO::Fitting model to feature number 96, PHOSLIPSYN-PWY
+2026-09-09 19:19:00.763357 INFO::Fitting model to feature number 97, POLYAMINSYN3-PWY
+2026-09-09 19:19:01.012284 INFO::Fitting model to feature number 98, POLYAMSYN-PWY
+2026-09-09 19:19:01.343242 INFO::Fitting model to feature number 99, POLYISOPRENSYN-PWY
+2026-09-09 19:19:01.605362 INFO::Fitting model to feature number 100, PPGPPMET-PWY
+2026-09-09 19:19:01.82697 INFO::Fitting model to feature number 101, PROTOCATECHUATE-ORTHO-CLEAVAGE-PWY
+2026-09-09 19:19:01.976289 INFO::Fitting model to feature number 102, PWY-1042
+2026-09-09 19:19:02.22175 INFO::Fitting model to feature number 103, PWY-1269
+2026-09-09 19:19:02.481453 INFO::Fitting model to feature number 104, PWY-1541
+2026-09-09 19:19:02.722263 INFO::Fitting model to feature number 105, PWY-1622
+2026-09-09 19:19:02.960413 INFO::Fitting model to feature number 106, PWY-181
+2026-09-09 19:19:03.099097 INFO::Fitting model to feature number 107, PWY-1861
+2026-09-09 19:19:03.332909 INFO::Fitting model to feature number 108, PWY-241
+2026-09-09 19:19:03.620575 INFO::Fitting model to feature number 109, PWY-2941
+2026-09-09 19:19:03.893906 INFO::Fitting model to feature number 110, PWY-2942
+2026-09-09 19:19:04.156836 INFO::Fitting model to feature number 111, PWY-3001
+2026-09-09 19:19:04.387907 INFO::Fitting model to feature number 112, PWY-3481
+2026-09-09 19:19:04.63586 INFO::Fitting model to feature number 113, PWY-3661
+2026-09-09 19:19:04.72468 WARNING::Fitting problem for feature 113 returning NA
+2026-09-09 19:19:04.738305 INFO::Fitting model to feature number 114, PWY-3841
+2026-09-09 19:19:04.976479 INFO::Fitting model to feature number 115, PWY-4702
+2026-09-09 19:19:05.280954 INFO::Fitting model to feature number 116, PWY-4984
+2026-09-09 19:19:05.52981 INFO::Fitting model to feature number 117, PWY-5005
+2026-09-09 19:19:05.775481 INFO::Fitting model to feature number 118, PWY-5022
+2026-09-09 19:19:06.017886 INFO::Fitting model to feature number 119, PWY-5028
+2026-09-09 19:19:06.255731 INFO::Fitting model to feature number 120, PWY-5030
+2026-09-09 19:19:06.406843 INFO::Fitting model to feature number 121, PWY-5097
+2026-09-09 19:19:06.659294 INFO::Fitting model to feature number 122, PWY-5100
+2026-09-09 19:19:06.879596 INFO::Fitting model to feature number 123, PWY-5101
+2026-09-09 19:19:07.107551 INFO::Fitting model to feature number 124, PWY-5103
+2026-09-09 19:19:07.37152 INFO::Fitting model to feature number 125, PWY-5104
+2026-09-09 19:19:07.507521 INFO::Fitting model to feature number 126, PWY-5121
+2026-09-09 19:19:07.745507 INFO::Fitting model to feature number 127, PWY-5130
+2026-09-09 19:19:07.993325 INFO::Fitting model to feature number 128, PWY-5136
+2026-09-09 19:19:08.24271 INFO::Fitting model to feature number 129, PWY-5138
+2026-09-09 19:19:08.465076 INFO::Fitting model to feature number 130, PWY-5154
+2026-09-09 19:19:08.720557 INFO::Fitting model to feature number 131, PWY-5180
+2026-09-09 19:19:09.020241 INFO::Fitting model to feature number 132, PWY-5188
+2026-09-09 19:19:09.168359 INFO::Fitting model to feature number 133, PWY-5189
+2026-09-09 19:19:09.525978 INFO::Fitting model to feature number 134, PWY-5265
+2026-09-09 19:19:09.685897 INFO::Fitting model to feature number 135, PWY-5345
+2026-09-09 19:19:09.926202 INFO::Fitting model to feature number 136, PWY-5347
+2026-09-09 19:19:10.165474 INFO::Fitting model to feature number 137, PWY-5367
+2026-09-09 19:19:10.445458 INFO::Fitting model to feature number 138, PWY-5384
+2026-09-09 19:19:10.685975 INFO::Fitting model to feature number 139, PWY-5392
+2026-09-09 19:19:10.930352 INFO::Fitting model to feature number 140, PWY-5415
+2026-09-09 19:19:11.169826 INFO::Fitting model to feature number 141, PWY-5417
+2026-09-09 19:19:11.342329 INFO::Fitting model to feature number 142, PWY-5419
+2026-09-09 19:19:11.56519 INFO::Fitting model to feature number 143, PWY-5420
+2026-09-09 19:19:11.786644 INFO::Fitting model to feature number 144, PWY-5431
+2026-09-09 19:19:12.009128 INFO::Fitting model to feature number 145, PWY-5484
+2026-09-09 19:19:12.26546 INFO::Fitting model to feature number 146, PWY-5494
+2026-09-09 19:19:12.413951 INFO::Fitting model to feature number 147, PWY-5497
+2026-09-09 19:19:12.676893 INFO::Fitting model to feature number 148, PWY-5505
+2026-09-09 19:19:12.855411 INFO::Fitting model to feature number 149, PWY-561
+2026-09-09 19:19:13.084002 INFO::Fitting model to feature number 150, PWY-5659
+2026-09-09 19:19:13.325852 INFO::Fitting model to feature number 151, PWY-5667
+2026-09-09 19:19:13.485697 INFO::Fitting model to feature number 152, PWY-5677
+2026-09-09 19:19:13.731134 INFO::Fitting model to feature number 153, PWY-5686
+2026-09-09 19:19:13.995935 INFO::Fitting model to feature number 154, PWY-5692
+2026-09-09 19:19:14.25655 INFO::Fitting model to feature number 155, PWY-5695
+2026-09-09 19:19:14.540231 INFO::Fitting model to feature number 156, PWY-5705
+2026-09-09 19:19:14.763391 INFO::Fitting model to feature number 157, PWY-5723
+2026-09-09 19:19:14.924642 INFO::Fitting model to feature number 158, PWY-5747
+2026-09-09 19:19:15.181145 INFO::Fitting model to feature number 159, PWY-5837
+2026-09-09 19:19:15.433622 INFO::Fitting model to feature number 160, PWY-5838
+2026-09-09 19:19:15.687414 INFO::Fitting model to feature number 161, PWY-5840
+2026-09-09 19:19:15.916999 INFO::Fitting model to feature number 162, PWY-5845
+2026-09-09 19:19:16.146907 INFO::Fitting model to feature number 163, PWY-5850
+2026-09-09 19:19:16.408231 INFO::Fitting model to feature number 164, PWY-5855
+2026-09-09 19:19:16.556429 INFO::Fitting model to feature number 165, PWY-5860
+2026-09-09 19:19:16.781256 INFO::Fitting model to feature number 166, PWY-5861
+2026-09-09 19:19:17.017137 INFO::Fitting model to feature number 167, PWY-5862
+2026-09-09 19:19:17.274884 INFO::Fitting model to feature number 168, PWY-5896
+2026-09-09 19:19:17.537281 INFO::Fitting model to feature number 169, PWY-5897
+2026-09-09 19:19:17.707228 INFO::Fitting model to feature number 170, PWY-5898
+2026-09-09 19:19:17.935175 INFO::Fitting model to feature number 171, PWY-5899
+2026-09-09 19:19:18.149568 INFO::Fitting model to feature number 172, PWY-5910
+2026-09-09 19:19:18.40809 INFO::Fitting model to feature number 173, PWY-5913
+2026-09-09 19:19:18.693782 INFO::Fitting model to feature number 174, PWY-5918
+2026-09-09 19:19:18.943105 INFO::Fitting model to feature number 175, PWY-5920
+2026-09-09 19:19:19.18784 INFO::Fitting model to feature number 176, PWY-5973
+2026-09-09 19:19:19.448989 INFO::Fitting model to feature number 177, PWY-5989
+2026-09-09 19:19:19.608308 INFO::Fitting model to feature number 178, PWY-6071
+2026-09-09 19:19:19.82183 INFO::Fitting model to feature number 179, PWY-6084
+2026-09-09 19:19:20.099028 INFO::Fitting model to feature number 180, PWY-6121
+2026-09-09 19:19:20.328877 INFO::Fitting model to feature number 181, PWY-6122
+2026-09-09 19:19:20.559487 INFO::Fitting model to feature number 182, PWY-6123
+2026-09-09 19:19:20.792396 INFO::Fitting model to feature number 183, PWY-6124
+2026-09-09 19:19:20.956131 INFO::Fitting model to feature number 184, PWY-6125
+2026-09-09 19:19:21.171254 INFO::Fitting model to feature number 185, PWY-6126
+2026-09-09 19:19:21.425929 INFO::Fitting model to feature number 186, PWY-6143
+2026-09-09 19:19:21.662237 INFO::Fitting model to feature number 187, PWY-6147
+2026-09-09 19:19:21.91585 INFO::Fitting model to feature number 188, PWY-6151
+2026-09-09 19:19:22.151381 INFO::Fitting model to feature number 189, PWY-6163
+2026-09-09 19:19:22.310658 INFO::Fitting model to feature number 190, PWY-6168
+2026-09-09 19:19:22.626294 INFO::Fitting model to feature number 191, PWY-6182
+2026-09-09 19:19:22.693059 WARNING::Fitting problem for feature 191 returning NA
+2026-09-09 19:19:22.704752 INFO::Fitting model to feature number 192, PWY-6185
+2026-09-09 19:19:22.796886 WARNING::Fitting problem for feature 192 returning NA
+2026-09-09 19:19:22.813382 INFO::Fitting model to feature number 193, PWY-622
+2026-09-09 19:19:23.019324 INFO::Fitting model to feature number 194, PWY-6263
+2026-09-09 19:19:23.239174 INFO::Fitting model to feature number 195, PWY-6269
+2026-09-09 19:19:23.497664 INFO::Fitting model to feature number 196, PWY-6270
+2026-09-09 19:19:23.801224 INFO::Fitting model to feature number 197, PWY-6277
+2026-09-09 19:19:24.078438 INFO::Fitting model to feature number 198, PWY-6292
+2026-09-09 19:19:24.242952 INFO::Fitting model to feature number 199, PWY-6293
+2026-09-09 19:19:24.501626 INFO::Fitting model to feature number 200, PWY-6305
+2026-09-09 19:19:24.806747 INFO::Fitting model to feature number 201, PWY-6307
+2026-09-09 19:19:24.947177 INFO::Fitting model to feature number 202, PWY-6313
+2026-09-09 19:19:25.085781 INFO::Fitting model to feature number 203, PWY-6317
+2026-09-09 19:19:25.419063 INFO::Fitting model to feature number 204, PWY-6344
+2026-09-09 19:19:25.574549 INFO::Fitting model to feature number 205, PWY-6353
+2026-09-09 19:19:25.814289 INFO::Fitting model to feature number 206, PWY-6383
+2026-09-09 19:19:26.040109 INFO::Fitting model to feature number 207, PWY-6385
+2026-09-09 19:19:26.268562 INFO::Fitting model to feature number 208, PWY-6386
+2026-09-09 19:19:26.511828 INFO::Fitting model to feature number 209, PWY-6387
+2026-09-09 19:19:26.689465 INFO::Fitting model to feature number 210, PWY-6396
+2026-09-09 19:19:26.915595 INFO::Fitting model to feature number 211, PWY-6397
+2026-09-09 19:19:27.123095 INFO::Fitting model to feature number 212, PWY-6404
+2026-09-09 19:19:27.392195 INFO::Fitting model to feature number 213, PWY-6421
+2026-09-09 19:19:27.62425 INFO::Fitting model to feature number 214, PWY-6435
+2026-09-09 19:19:27.859928 INFO::Fitting model to feature number 215, PWY-6467
+2026-09-09 19:19:28.031224 INFO::Fitting model to feature number 216, PWY-6470
+2026-09-09 19:19:28.282582 INFO::Fitting model to feature number 217, PWY-6471
+2026-09-09 19:19:28.526459 INFO::Fitting model to feature number 218, PWY-6478
+2026-09-09 19:19:28.744871 INFO::Fitting model to feature number 219, PWY-6501
+2026-09-09 19:19:28.845992 WARNING::Fitting problem for feature 219 returning NA
+2026-09-09 19:19:28.860541 INFO::Fitting model to feature number 220, PWY-6527
+2026-09-09 19:19:29.162035 INFO::Fitting model to feature number 221, PWY-6531
+2026-09-09 19:19:29.339969 INFO::Fitting model to feature number 222, PWY-6562
+2026-09-09 19:19:29.56863 INFO::Fitting model to feature number 223, PWY-6565
+2026-09-09 19:19:29.771803 INFO::Fitting model to feature number 224, PWY-6595
+2026-09-09 19:19:29.956727 INFO::Fitting model to feature number 225, PWY-6606
+2026-09-09 19:19:30.249262 INFO::Fitting model to feature number 226, PWY-6607
+2026-09-09 19:19:30.402481 INFO::Fitting model to feature number 227, PWY-6608
+2026-09-09 19:19:30.647629 INFO::Fitting model to feature number 228, PWY-6609
+2026-09-09 19:19:30.902903 INFO::Fitting model to feature number 229, PWY-6612
+2026-09-09 19:19:31.093076 INFO::Fitting model to feature number 230, PWY-6628
+2026-09-09 19:19:31.327574 INFO::Fitting model to feature number 231, PWY-6630
+2026-09-09 19:19:31.578493 INFO::Fitting model to feature number 232, PWY-6641
+2026-09-09 19:19:31.805264 INFO::Fitting model to feature number 233, PWY-6700
+2026-09-09 19:19:32.036361 INFO::Fitting model to feature number 234, PWY-6703
+2026-09-09 19:19:32.27312 INFO::Fitting model to feature number 235, PWY-6731
+2026-09-09 19:19:32.453418 INFO::Fitting model to feature number 236, PWY-6749
+2026-09-09 19:19:32.757729 INFO::Fitting model to feature number 237, PWY-6803
+2026-09-09 19:19:32.919398 INFO::Fitting model to feature number 238, PWY-6823
+2026-09-09 19:19:33.17547 INFO::Fitting model to feature number 239, PWY-6837
+2026-09-09 19:19:33.432274 INFO::Fitting model to feature number 240, PWY-6859
+2026-09-09 19:19:33.69666 INFO::Fitting model to feature number 241, PWY-6891
+2026-09-09 19:19:33.854733 INFO::Fitting model to feature number 242, PWY-6895
+2026-09-09 19:19:34.082014 INFO::Fitting model to feature number 243, PWY-6897
+2026-09-09 19:19:34.312057 INFO::Fitting model to feature number 244, PWY-6901
+2026-09-09 19:19:34.566017 INFO::Fitting model to feature number 245, PWY-6902
+2026-09-09 19:19:34.834584 INFO::Fitting model to feature number 246, PWY-6906
+2026-09-09 19:19:35.082032 INFO::Fitting model to feature number 247, PWY-6922
+2026-09-09 19:19:35.333289 INFO::Fitting model to feature number 248, PWY-6936
+2026-09-09 19:19:35.510054 INFO::Fitting model to feature number 249, PWY-6948
+2026-09-09 19:19:35.771436 INFO::Fitting model to feature number 250, PWY-6961
+2026-09-09 19:19:36.067466 INFO::Fitting model to feature number 251, PWY-6969
+2026-09-09 19:19:36.225818 INFO::Fitting model to feature number 252, PWY-7013
+2026-09-09 19:19:36.474766 INFO::Fitting model to feature number 253, PWY-702
+2026-09-09 19:19:36.719447 INFO::Fitting model to feature number 254, PWY-7031
+2026-09-09 19:19:36.879062 INFO::Fitting model to feature number 255, PWY-7039
+2026-09-09 19:19:37.174773 INFO::Fitting model to feature number 256, PWY-7052
+2026-09-09 19:19:37.321395 INFO::Fitting model to feature number 257, PWY-7090
+2026-09-09 19:19:37.551133 INFO::Fitting model to feature number 258, PWY-7094
+2026-09-09 19:19:37.819276 INFO::Fitting model to feature number 259, PWY-7111
+2026-09-09 19:19:37.96974 INFO::Fitting model to feature number 260, PWY-7115
+2026-09-09 19:19:38.191008 INFO::Fitting model to feature number 261, PWY-7117
+2026-09-09 19:19:38.458786 INFO::Fitting model to feature number 262, PWY-7118
+2026-09-09 19:19:38.710746 INFO::Fitting model to feature number 263, PWY-7199
+2026-09-09 19:19:38.95955 INFO::Fitting model to feature number 264, PWY-7208
+2026-09-09 19:19:39.191574 INFO::Fitting model to feature number 265, PWY-7220
+2026-09-09 19:19:39.453165 INFO::Fitting model to feature number 266, PWY-7221
+2026-09-09 19:19:39.73899 INFO::Fitting model to feature number 267, PWY-7222
+2026-09-09 19:19:39.978612 INFO::Fitting model to feature number 268, PWY-7228
+2026-09-09 19:19:40.124931 INFO::Fitting model to feature number 269, PWY-7229
+2026-09-09 19:19:40.360743 INFO::Fitting model to feature number 270, PWY-7234
+2026-09-09 19:19:40.585545 INFO::Fitting model to feature number 271, PWY-7237
+2026-09-09 19:19:40.854724 INFO::Fitting model to feature number 272, PWY-7238
+2026-09-09 19:19:41.086798 INFO::Fitting model to feature number 273, PWY-724
+2026-09-09 19:19:41.385292 INFO::Fitting model to feature number 274, PWY-7254
+2026-09-09 19:19:41.520068 INFO::Fitting model to feature number 275, PWY-7268
+2026-09-09 19:21:36.291001 INFO::Fitting model to feature number 276, PWY-7269
+2026-09-09 19:21:37.138522 INFO::Fitting model to feature number 277, PWY-7282
+2026-09-09 19:21:37.205781 INFO::Fitting model to feature number 278, PWY-7294
+2026-09-09 19:21:37.400562 INFO::Fitting model to feature number 279, PWY-7315
+2026-09-09 19:21:38.019432 INFO::Fitting model to feature number 280, PWY-7316
+2026-09-09 19:21:38.855866 INFO::Fitting model to feature number 281, PWY-7323
+2026-09-09 19:21:39.102727 INFO::Fitting model to feature number 282, PWY-7328
+2026-09-09 19:21:39.391725 INFO::Fitting model to feature number 283, PWY-7332
+2026-09-09 19:21:39.755994 INFO::Fitting model to feature number 284, PWY-7345
+2026-09-09 19:21:39.932325 INFO::Fitting model to feature number 285, PWY-7356
+2026-09-09 19:21:40.333705 INFO::Fitting model to feature number 286, PWY-7357
+2026-09-09 19:21:41.171839 INFO::Fitting model to feature number 287, PWY-7371
+2026-09-09 19:21:41.435732 INFO::Fitting model to feature number 288, PWY-7373
+2026-09-09 19:21:45.136414 INFO::Fitting model to feature number 289, PWY-7374
+2026-09-09 19:21:45.452861 INFO::Fitting model to feature number 290, PWY-7376
+2026-09-09 19:21:45.622331 INFO::Fitting model to feature number 291, PWY-7377
+2026-09-09 19:21:45.95312 INFO::Fitting model to feature number 292, PWY-7383
+2026-09-09 19:21:46.240935 INFO::Fitting model to feature number 293, PWY-7392
+2026-09-09 19:21:46.479072 INFO::Fitting model to feature number 294, PWY-7399
+2026-09-09 19:21:46.72774 INFO::Fitting model to feature number 295, PWY-7400
+2026-09-09 19:21:47.008646 INFO::Fitting model to feature number 296, PWY-7413
+2026-09-09 19:21:47.308667 INFO::Fitting model to feature number 297, PWY-7431
+2026-09-09 19:21:47.544629 INFO::Fitting model to feature number 298, PWY-7456
+2026-09-09 19:21:48.807373 INFO::Fitting model to feature number 299, PWY-7480
+2026-09-09 19:21:48.979541 INFO::Fitting model to feature number 300, PWY-7560
+2026-09-09 19:21:49.215716 INFO::Fitting model to feature number 301, PWY-7663
+2026-09-09 19:21:49.473283 INFO::Fitting model to feature number 302, PWY-7761
+2026-09-09 19:21:49.695153 INFO::Fitting model to feature number 303, PWY-7783
+2026-09-09 19:21:49.938278 INFO::Fitting model to feature number 304, PWY-7790
+2026-09-09 19:21:50.099645 INFO::Fitting model to feature number 305, PWY-7791
+2026-09-09 19:21:50.429042 INFO::Fitting model to feature number 306, PWY-7805
+2026-09-09 19:21:50.567727 INFO::Fitting model to feature number 307, PWY-7807
+2026-09-09 19:21:50.838274 INFO::Fitting model to feature number 308, PWY-7851
+2026-09-09 19:21:51.101743 INFO::Fitting model to feature number 309, PWY-7858
+2026-09-09 19:21:51.341819 INFO::Fitting model to feature number 310, PWY-7873
+2026-09-09 19:21:51.507139 INFO::Fitting model to feature number 311, PWY-7874
+2026-09-09 19:21:51.728162 INFO::Fitting model to feature number 312, PWY-7883
+2026-09-09 19:21:51.990901 INFO::Fitting model to feature number 313, PWY-7900
+2026-09-09 19:21:52.218961 INFO::Fitting model to feature number 314, PWY-7913
+2026-09-09 19:21:52.456457 INFO::Fitting model to feature number 315, PWY-7942
+2026-09-09 19:21:52.676059 INFO::Fitting model to feature number 316, PWY-7953
+2026-09-09 19:21:53.006724 INFO::Fitting model to feature number 317, PWY-7977
+2026-09-09 19:21:53.342676 INFO::Fitting model to feature number 318, PWY-7992
+2026-09-09 19:21:53.625357 INFO::Fitting model to feature number 319, PWY-8004
+2026-09-09 19:21:53.890623 INFO::Fitting model to feature number 320, PWY-801
+2026-09-09 19:21:54.12418 INFO::Fitting model to feature number 321, PWY-8011
+2026-09-09 19:21:54.383582 INFO::Fitting model to feature number 322, PWY-8020
+2026-09-09 19:21:54.534208 INFO::Fitting model to feature number 323, PWY-8055
+2026-09-09 19:21:54.785885 INFO::Fitting model to feature number 324, PWY-8073
+2026-09-09 19:21:55.04918 INFO::Fitting model to feature number 325, PWY-8131
+2026-09-09 19:21:55.305028 INFO::Fitting model to feature number 326, PWY-8178
+2026-09-09 19:21:55.533451 INFO::Fitting model to feature number 327, PWY-8187
+2026-09-09 19:21:55.757744 INFO::Fitting model to feature number 328, PWY-8190
+2026-09-09 19:21:56.002784 INFO::Fitting model to feature number 329, PWY-821
+2026-09-09 19:21:56.166884 INFO::Fitting model to feature number 330, PWY-822
+2026-09-09 19:21:56.575042 INFO::Fitting model to feature number 331, PWY-841
+2026-09-09 19:21:56.888263 INFO::Fitting model to feature number 332, PWY-922
+2026-09-09 19:21:57.119293 INFO::Fitting model to feature number 333, PWY-I9
+2026-09-09 19:21:57.357163 INFO::Fitting model to feature number 334, PWY0-1061
+2026-09-09 19:21:57.524538 INFO::Fitting model to feature number 335, PWY0-1241
+2026-09-09 19:21:57.940638 INFO::Fitting model to feature number 336, PWY0-1261
+2026-09-09 19:21:58.088949 INFO::Fitting model to feature number 337, PWY0-1296
+2026-09-09 19:21:58.312083 INFO::Fitting model to feature number 338, PWY0-1297
+2026-09-09 19:21:58.553906 INFO::Fitting model to feature number 339, PWY0-1319
+2026-09-09 19:21:58.80208 INFO::Fitting model to feature number 340, PWY0-1338
+2026-09-09 19:21:59.078177 INFO::Fitting model to feature number 341, PWY0-1415
+2026-09-09 19:21:59.310759 INFO::Fitting model to feature number 342, PWY0-1477
+2026-09-09 19:21:59.549443 INFO::Fitting model to feature number 343, PWY0-1479
+2026-09-09 19:21:59.695734 INFO::Fitting model to feature number 344, PWY0-1533
+2026-09-09 19:21:59.932175 INFO::Fitting model to feature number 345, PWY0-1586
+2026-09-09 19:22:00.180396 INFO::Fitting model to feature number 346, PWY0-162
+2026-09-09 19:22:00.421464 INFO::Fitting model to feature number 347, PWY0-301
+2026-09-09 19:22:00.657787 INFO::Fitting model to feature number 348, PWY0-321
+2026-09-09 19:22:00.907112 INFO::Fitting model to feature number 349, PWY0-41
+2026-09-09 19:22:01.068963 INFO::Fitting model to feature number 350, PWY0-42
+2026-09-09 19:22:01.31394 INFO::Fitting model to feature number 351, PWY0-781
+2026-09-09 19:22:01.564205 INFO::Fitting model to feature number 352, PWY0-845
+2026-09-09 19:22:01.795477 INFO::Fitting model to feature number 353, PWY0-862
+2026-09-09 19:22:02.049046 INFO::Fitting model to feature number 354, PWY1G-0
+2026-09-09 19:22:02.193688 INFO::Fitting model to feature number 355, PWY1ZNC-1
+2026-09-09 19:22:02.483087 INFO::Fitting model to feature number 356, PWY3O-4107
+2026-09-09 19:22:02.720159 INFO::Fitting model to feature number 357, PWY490-3
+2026-09-09 19:22:03.078723 INFO::Fitting model to feature number 358, PWY4FS-7
+2026-09-09 19:22:03.507496 INFO::Fitting model to feature number 359, PWY4FS-8
+2026-09-09 19:22:03.786507 INFO::Fitting model to feature number 360, PWY4LZ-257
+2026-09-09 19:22:04.02229 INFO::Fitting model to feature number 361, PWY66-389
+2026-09-09 19:22:04.280113 INFO::Fitting model to feature number 362, PWY66-391
+2026-09-09 19:22:04.491606 INFO::Fitting model to feature number 363, PWY66-399
+2026-09-09 19:22:04.659985 INFO::Fitting model to feature number 364, PWY66-409
+2026-09-09 19:22:04.897026 INFO::Fitting model to feature number 365, PWY6666-2
+2026-09-09 19:22:05.151999 INFO::Fitting model to feature number 366, PYRIDNUCSAL-PWY
+2026-09-09 19:22:05.422571 INFO::Fitting model to feature number 367, PYRIDNUCSYN-PWY
+2026-09-09 19:22:05.660972 INFO::Fitting model to feature number 368, PYRIDOXSYN-PWY
+2026-09-09 19:22:05.873511 INFO::Fitting model to feature number 369, REDCITCYC
+2026-09-09 19:22:06.047894 INFO::Fitting model to feature number 370, RHAMCAT-PWY
+2026-09-09 19:22:06.283207 INFO::Fitting model to feature number 371, RIBOSYN2-PWY
+2026-09-09 19:22:06.547275 INFO::Fitting model to feature number 372, RUMP-PWY
+2026-09-09 19:22:06.874954 INFO::Fitting model to feature number 373, SALVADEHYPOX-PWY
+2026-09-09 19:22:07.04586 INFO::Fitting model to feature number 374, SER-GLYSYN-PWY
+2026-09-09 19:22:07.283314 INFO::Fitting model to feature number 375, SO4ASSIM-PWY
+2026-09-09 19:22:07.512578 INFO::Fitting model to feature number 376, SULFATE-CYS-PWY
+2026-09-09 19:22:07.736132 INFO::Fitting model to feature number 377, THISYNARA-PWY
+2026-09-09 19:22:07.903963 INFO::Fitting model to feature number 378, THRESYN-PWY
+2026-09-09 19:22:08.218651 INFO::Fitting model to feature number 379, TRNA-CHARGING-PWY
+2026-09-09 19:22:08.383182 INFO::Fitting model to feature number 380, TYRFUMCAT-PWY
+2026-09-09 19:22:08.61714 INFO::Fitting model to feature number 381, UDPNAGSYN-PWY
+2026-09-09 19:22:08.857816 INFO::Fitting model to feature number 382, URDEGR-PWY
+2026-09-09 19:22:09.090718 INFO::Fitting model to feature number 383, URSIN-PWY
+2026-09-09 19:22:09.247511 INFO::Fitting model to feature number 384, VALSYN-PWY
+2026-09-09 19:22:09.571838 INFO::Performing tests against medians
+2026-09-09 19:23:07.433412 INFO::Counting total values for each feature
+2026-09-09 19:23:07.578338 INFO::Creating fits folder
+2026-09-09 19:23:07.584629 INFO::Writing model objects to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/fits/models_linear.rds
+2026-09-09 19:23:19.988979 INFO::Writing residuals to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/fits/residuals_linear.rds
+2026-09-09 19:23:22.149467 INFO::Writing fitted values to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/fits/fitted_linear.rds
+2026-09-09 19:23:22.231676 INFO::Writing extracted random effects to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/fits/ranef_linear.rds
+2026-09-09 19:23:23.149486 INFO::Writing all the results to file (ordered 
+            by increasing individual q-values): Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/all_results.tsv
+2026-09-09 19:23:23.336655 INFO::Writing the significant results without errors (those which have joint q-values less than or equal to the threshold of 0.050000 ) to file (ordered by increasing individual q-values): Results/05_PICRUSt2_Functional_Prediction/Model_Output/MetaCyc_MaAsLin3/significant_results.tsv

@@ -1,0 +1,84 @@
+contrast,functional_category,n_significant_pathways
+Lab-like:As vs Wild-like:As,Amino-acid metabolism,44
+Lab-like:As vs Wild-like:As,Carbohydrate utilization,37
+Lab-like:As vs Wild-like:As,Nucleotide metabolism,33
+Lab-like:As vs Wild-like:As,Vitamin / cofactor metabolism,30
+Lab-like:As vs Wild-like:As,Cell envelope / surface structures,17
+Lab-like:As vs Wild-like:As,Other / unclear,16
+Lab-like:As vs Wild-like:As,Lipid / isoprenoid metabolism,15
+Lab-like:As vs Wild-like:As,Energy / central carbon metabolism,14
+Lab-like:As vs Wild-like:As,Fermentation / SCFA metabolism,10
+Lab-like:As vs Wild-like:As,Nitrogen / sulfur / phosphorus metabolism,9
+Lab-like:As vs Wild-like:As,Amine / neuroactive compound metabolism,4
+Lab-like:As vs Wild-like:As,Aromatic / xenobiotic degradation,4
+Lab-like:As vs Wild-like:As,Polyamine metabolism,2
+Lab-like:As vs Wild-like:As,Translation / regulatory metabolism,2
+Lab-like:As vs Wild:As,Amino-acid metabolism,42
+Lab-like:As vs Wild:As,Carbohydrate utilization,29
+Lab-like:As vs Wild:As,Nucleotide metabolism,23
+Lab-like:As vs Wild:As,Vitamin / cofactor metabolism,23
+Lab-like:As vs Wild:As,Lipid / isoprenoid metabolism,17
+Lab-like:As vs Wild:As,Other / unclear,15
+Lab-like:As vs Wild:As,Energy / central carbon metabolism,14
+Lab-like:As vs Wild:As,Cell envelope / surface structures,13
+Lab-like:As vs Wild:As,Fermentation / SCFA metabolism,10
+Lab-like:As vs Wild:As,Aromatic / xenobiotic degradation,8
+Lab-like:As vs Wild:As,Nitrogen / sulfur / phosphorus metabolism,7
+Lab-like:As vs Wild:As,Amine / neuroactive compound metabolism,3
+Lab-like:As vs Wild:As,Polyamine metabolism,1
+Lab:Mm vs Lab-like:As,Amino-acid metabolism,32
+Lab:Mm vs Lab-like:As,Vitamin / cofactor metabolism,25
+Lab:Mm vs Lab-like:As,Nucleotide metabolism,22
+Lab:Mm vs Lab-like:As,Carbohydrate utilization,19
+Lab:Mm vs Lab-like:As,Other / unclear,11
+Lab:Mm vs Lab-like:As,Energy / central carbon metabolism,10
+Lab:Mm vs Lab-like:As,Cell envelope / surface structures,9
+Lab:Mm vs Lab-like:As,Lipid / isoprenoid metabolism,9
+Lab:Mm vs Lab-like:As,Nitrogen / sulfur / phosphorus metabolism,7
+Lab:Mm vs Lab-like:As,Fermentation / SCFA metabolism,6
+Lab:Mm vs Lab-like:As,Amine / neuroactive compound metabolism,4
+Lab:Mm vs Lab-like:As,Aromatic / xenobiotic degradation,4
+Lab:Mm vs Lab-like:As,Polyamine metabolism,1
+Lab:Mm vs Lab-like:As,Translation / regulatory metabolism,1
+Lab:Mm vs Wild-like:As,Amino-acid metabolism,50
+Lab:Mm vs Wild-like:As,Carbohydrate utilization,38
+Lab:Mm vs Wild-like:As,Vitamin / cofactor metabolism,35
+Lab:Mm vs Wild-like:As,Nucleotide metabolism,28
+Lab:Mm vs Wild-like:As,Lipid / isoprenoid metabolism,19
+Lab:Mm vs Wild-like:As,Other / unclear,18
+Lab:Mm vs Wild-like:As,Cell envelope / surface structures,15
+Lab:Mm vs Wild-like:As,Energy / central carbon metabolism,14
+Lab:Mm vs Wild-like:As,Fermentation / SCFA metabolism,12
+Lab:Mm vs Wild-like:As,Nitrogen / sulfur / phosphorus metabolism,9
+Lab:Mm vs Wild-like:As,Aromatic / xenobiotic degradation,3
+Lab:Mm vs Wild-like:As,Polyamine metabolism,3
+Lab:Mm vs Wild-like:As,Translation / regulatory metabolism,3
+Lab:Mm vs Wild-like:As,Amine / neuroactive compound metabolism,2
+Lab:Mm vs Wild:As,Amino-acid metabolism,44
+Lab:Mm vs Wild:As,Carbohydrate utilization,32
+Lab:Mm vs Wild:As,Vitamin / cofactor metabolism,30
+Lab:Mm vs Wild:As,Lipid / isoprenoid metabolism,19
+Lab:Mm vs Wild:As,Other / unclear,19
+Lab:Mm vs Wild:As,Energy / central carbon metabolism,16
+Lab:Mm vs Wild:As,Nucleotide metabolism,14
+Lab:Mm vs Wild:As,Cell envelope / surface structures,11
+Lab:Mm vs Wild:As,Nitrogen / sulfur / phosphorus metabolism,8
+Lab:Mm vs Wild:As,Aromatic / xenobiotic degradation,7
+Lab:Mm vs Wild:As,Fermentation / SCFA metabolism,7
+Lab:Mm vs Wild:As,Amine / neuroactive compound metabolism,1
+Lab:Mm vs Wild:As,Polyamine metabolism,1
+Lab:Mm vs Wild:As,Translation / regulatory metabolism,1
+Wild-like:As vs Wild:As,Amino-acid metabolism,30
+Wild-like:As vs Wild:As,Nucleotide metabolism,27
+Wild-like:As vs Wild:As,Carbohydrate utilization,24
+Wild-like:As vs Wild:As,Lipid / isoprenoid metabolism,22
+Wild-like:As vs Wild:As,Vitamin / cofactor metabolism,19
+Wild-like:As vs Wild:As,Cell envelope / surface structures,11
+Wild-like:As vs Wild:As,Other / unclear,11
+Wild-like:As vs Wild:As,Fermentation / SCFA metabolism,8
+Wild-like:As vs Wild:As,Energy / central carbon metabolism,7
+Wild-like:As vs Wild:As,Nitrogen / sulfur / phosphorus metabolism,7
+Wild-like:As vs Wild:As,Polyamine metabolism,3
+Wild-like:As vs Wild:As,Amine / neuroactive compound metabolism,1
+Wild-like:As vs Wild:As,Aromatic / xenobiotic degradation,1
+Wild-like:As vs Wild:As,Translation / regulatory metabolism,1
