@@ -47,7 +47,15 @@ library(ggh4x)
 # 3. LOAD DATA
 # ==============================================================================
 
-source("Scripts/00_DataPrep_Baseline.R")
+# Load the final preprocessed baseline phyloseq object.
+# Run Scripts/00_DataPrep_Baseline.R first whenever preprocessing changes.
+ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
+
+results_dir <- "Results/04_Descriptive_Visualization"
+tables_dir <- file.path(results_dir, "Tables")
+figures_dir <- file.path(results_dir, "Figures")
+dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
 
 
 stopifnot(
@@ -103,6 +111,11 @@ CFamily <- ps_family %>%
 
 print(CFamily)
 
+ggplot2::ggsave(
+  file.path(figures_dir, "family_relative_abundance_by_sample_origin.pdf"),
+  CFamily, width = 10, height = 6
+)
+
 
 ## genus level
 ps_genus <- ps_all %>% tax_fix(unknowns = c("Unclassified_Genus"))
@@ -141,6 +154,11 @@ CGenus <- ps_genus %>%
   )
 
 print(CGenus)
+
+ggplot2::ggsave(
+  file.path(figures_dir, "genus_relative_abundance_by_sample_origin.pdf"),
+  CGenus, width = 10, height = 6
+)
 
 # ==============================================================================
 # 5. USER SETTINGS
@@ -1795,6 +1813,6 @@ print(final_combined_plot)
 # ==============================================================================
 
 ## save final plot
-pdf("Output/Graphs/ASV_overlaps.pdf", width = 14, height = 6)
+pdf(file.path(figures_dir, "ASV_overlap_and_shared_taxonomic_composition.pdf"), width = 14, height = 6)
 print(final_combined_plot)
 dev.off()

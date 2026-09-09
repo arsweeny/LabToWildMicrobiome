@@ -16,7 +16,7 @@
 #
 ###############################################################################
 
-# LOAD PACKAGES AND SOURCE PREVIOUS ANALYSES ------------------------------
+# LOAD PACKAGES AND PREPROCESSED DATA ------------------------------------
 
 rm(list = ls())
 
@@ -32,9 +32,18 @@ library(tibble)
 library(tidyr)
 library(vegan)
 library(ggpubr)
+library(ggforce)
+library(picante)
 
-source("Scripts/00_DataPrep_Baseline.R")
-source("Scripts/01_AlphaDiversity_Baseline.R")
+# Load the final preprocessed baseline phyloseq object.
+# Run Scripts/00_DataPrep_Baseline.R first whenever preprocessing changes.
+ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
+
+results_dir <- "Results/02_Beta_Diversity"
+tables_dir <- file.path(results_dir, "Tables")
+figures_dir <- file.path(results_dir, "Figures")
+dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
 
 # ANALYSIS SETTINGS -------------------------------------------------------
 
@@ -301,7 +310,7 @@ beta_pan <- ggarrange(
 )
 
 ## save final plot
-pdf("Output/Graphs/beta_diversity.pdf", width = 10, height = 10)
+pdf(file.path(figures_dir, "beta_diversity_PCoA_by_sample_origin.pdf"), width = 10, height = 10)
 print(beta_pan)
 dev.off()
 
@@ -668,16 +677,136 @@ openxlsx::write.xlsx(
     Jaccard_dispersion_perm = jaccard_disp_perm_df
   ),
   
-  file = "Output/Beta_PERMANOVA_results.xlsx",
+  file = file.path(tables_dir, "beta_diversity_PERMANOVA_and_dispersion_results.xlsx"),
   
   overwrite = TRUE
 )
 
-file.exists("Output/Beta_PERMANOVA_results.xlsx")
+file.exists(file.path(tables_dir, "beta_diversity_PERMANOVA_and_dispersion_results.xlsx"))
 
 
 
 # CREATE THE COMBINED ALPHA- AND BETA-DIVERSITY FIGURE --------------------
+#
+# The alpha-diversity panels are recreated here directly from ps_all rather
+# than loaded from 01_AlphaDiversity_Baseline.R. This keeps the combined figure
+# fully self-contained in the beta-diversity script and makes it easy to tweak
+# the alpha panels specifically for the combined manuscript figure.
+#
+# These steps intentionally reproduce the Shannon and Faith's PD plots used in
+# the original script. They do not replace the full alpha-diversity analysis in
+# 01_AlphaDiversity_Baseline.R.
+
+# Rarefy the same preprocessed ps_all object used by the alpha-diversity script.
+ps_rare_combined <- phyloseq::rarefy_even_depth(
+  ps_all,
+  rngseed = 123,
+  replace = FALSE
+)
+
+# Calculate only the alpha-diversity metrics required for the combined figure.
+alpha_combined <- data.frame(
+  Shannon = phyloseq::estimate_richness(
+    ps_rare_combined,
+    measures = "Shannon"
+  )$Shannon,
+  FaithPD = picante::pd(
+    samp = data.frame(phyloseq::otu_table(ps_rare_combined)),
+    tree = phyloseq::phy_tree(ps_rare_combined)
+  )[, 1],
+  SampleOrigin = phyloseq::sample_data(ps_rare_combined)$SampleOrigin,
+  check.names = FALSE
+)
+
+alpha_combined$SampleOrigin <- factor(
+  alpha_combined$SampleOrigin,
+  levels = cohort_order
+)
+
+# Group means and standard errors, matching the original alpha-diversity plots.
+alpha_shan_combined <- alpha_combined |>
+  dplyr::group_by(SampleOrigin) |>
+  dplyr::summarise(
+    mean = mean(Shannon),
+    se = plotrix::std.error(Shannon),
+    .groups = "drop"
+  )
+
+alpha_pd_combined <- alpha_combined |>
+  dplyr::group_by(SampleOrigin) |>
+  dplyr::summarise(
+    mean = mean(FaithPD),
+    se = plotrix::std.error(FaithPD),
+    .groups = "drop"
+  )
+
+# Recreate the original Shannon panel.
+shan_all_R <- alpha_combined |>
+  ggplot2::ggplot() +
+  ggforce::geom_sina(
+    ggplot2::aes(
+      x = SampleOrigin,
+      y = Shannon,
+      colour = SampleOrigin
+    ),
+    alpha = 1.0,
+    size = 2,
+    show.legend = FALSE
+  ) +
+  ggplot2::geom_point(
+    data = alpha_shan_combined,
+    ggplot2::aes(x = SampleOrigin, y = mean),
+    color = "black",
+    size = 3
+  ) +
+  ggplot2::geom_errorbar(
+    data = alpha_shan_combined,
+    ggplot2::aes(
+      x = SampleOrigin,
+      ymin = mean - se,
+      ymax = mean + se
+    ),
+    width = 0.3,
+    linewidth = 0.5
+  ) +
+  ggplot2::theme_bw(base_size = 20) +
+  ggplot2::labs(y = "Shannon Diversity", x = "") +
+  ggplot2::scale_colour_manual(values = cohort_colours) +
+  ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(angle = 45))
+
+# Recreate the original Faith's phylogenetic diversity panel.
+pd_all_R <- alpha_combined |>
+  ggplot2::ggplot() +
+  ggforce::geom_sina(
+    ggplot2::aes(
+      x = SampleOrigin,
+      y = FaithPD,
+      colour = SampleOrigin
+    ),
+    alpha = 1.0,
+    size = 2,
+    show.legend = FALSE
+  ) +
+  ggplot2::geom_point(
+    data = alpha_pd_combined,
+    ggplot2::aes(x = SampleOrigin, y = mean),
+    color = "black",
+    size = 3
+  ) +
+  ggplot2::geom_errorbar(
+    data = alpha_pd_combined,
+    ggplot2::aes(
+      x = SampleOrigin,
+      ymin = mean - se,
+      ymax = mean + se
+    ),
+    width = 0.3,
+    linewidth = 0.5
+  ) +
+  ggplot2::theme_bw(base_size = 20) +
+  ggplot2::labs(y = "Phylogenetic Diversity", x = "") +
+  ggplot2::scale_colour_manual(values = cohort_colours) +
+  ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(angle = 45))
 
 common_theme <- theme_classic(base_size = 12) +
   theme(
@@ -750,7 +879,10 @@ diversity_panel <- wrap_plots(
 print(diversity_panel)
 
 ggsave(
-  filename = "Output/Graphs/alpha_beta_diversity.pdf",
+  filename = file.path(
+    figures_dir,
+    "combined_alpha_and_beta_diversity.pdf"
+  ),
   plot = diversity_panel,
   width = 8,
   height = 8,

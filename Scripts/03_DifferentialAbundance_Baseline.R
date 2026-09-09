@@ -33,7 +33,9 @@
 #   ps_all : phyloseq object created by 00_DataPrep_Baseline.R
 # ==============================================================================
 
-source("Scripts/00_DataPrep_Baseline.R")
+# Load the final preprocessed baseline phyloseq object.
+# Run Scripts/00_DataPrep_Baseline.R first whenever preprocessing changes.
+ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
 
 # Packages ---------------------------------------------------------------------
 required_packages <- c(
@@ -52,12 +54,13 @@ if (length(missing_packages) > 0) {
 }
 
 # User settings ----------------------------------------------------------------
-output_dir <- "Results/MaAsLin3_ASV_Genus_Family"
-tables_dir <- file.path(output_dir, "01_tables")
-figures_dir <- file.path(output_dir, "02_figures")
-asv_model_dir <- file.path(output_dir, "03_ASV_model")
-genus_model_dir <- file.path(output_dir, "04_Genus_model")
-family_model_dir <- file.path(output_dir, "05_Family_model")
+output_dir <- "Results/03_ASV_Differential_Abundance"
+tables_dir <- file.path(output_dir, "Tables")
+figures_dir <- file.path(output_dir, "Figures")
+model_dir <- file.path(output_dir, "Model_Output")
+asv_model_dir <- file.path(model_dir, "ASV")
+genus_model_dir <- file.path(model_dir, "Genus")
+family_model_dir <- file.path(model_dir, "Family")
 
 q_threshold <- 0.05
 minimum_prevalence <- 0.10
@@ -67,7 +70,7 @@ force_rerun <- FALSE
 # Ranking = number of significant contrasts, then minimum q-value, then effect size.
 max_genera_heatmap <- 20
 
-for (x in c(output_dir, tables_dir, figures_dir,
+for (x in c(output_dir, tables_dir, figures_dir, model_dir,
             asv_model_dir, genus_model_dir, family_model_dir)) {
   dir.create(x, recursive = TRUE, showWarnings = FALSE)
 }
@@ -170,11 +173,6 @@ repeat_summary <- metadata |>
     maximum_samples_per_mouse = max(n_samples)
   )
 
-readr::write_csv(sample_summary,
-                 file.path(tables_dir, "sample_counts_by_origin.csv"))
-readr::write_csv(repeat_summary,
-                 file.path(tables_dir, "mouse_repeat_summary.csv"))
-
 # TSS denominator from complete community -------------------------------------
 # We normalize BEFORE feature filtering/aggregation so every feature abundance
 # remains relative to the full observed community, not to the subset retained
@@ -196,11 +194,6 @@ asv_filter_summary <- tibble::tibble(
   retained = as.logical(asv_keep)
 ) |>
   dplyr::left_join(taxonomy, by = "ASV")
-
-readr::write_csv(
-  asv_filter_summary,
-  file.path(tables_dir, "ASV_filter_summary.csv")
-)
 
 asv_input <- as.data.frame(
   asv_tss_all[, asv_keep, drop = FALSE],
@@ -303,15 +296,6 @@ family_data <- make_taxon_input("Family")
 genus_input <- genus_data$input
 family_input <- family_data$input
 
-readr::write_csv(
-  genus_data$filter_summary,
-  file.path(tables_dir, "Genus_filter_summary.csv")
-)
-readr::write_csv(
-  family_data$filter_summary,
-  file.path(tables_dir, "Family_filter_summary.csv")
-)
-
 # ASV-to-taxonomy mapping retained for traceability.
 taxonomy_mapping <- taxonomy |>
   dplyr::transmute(
@@ -321,11 +305,6 @@ taxonomy_mapping <- taxonomy |>
     valid_genus = is_valid_taxon(Genus),
     valid_family = is_valid_taxon(Family)
   )
-
-readr::write_csv(
-  taxonomy_mapping,
-  file.path(tables_dir, "ASV_taxonomic_resolution_mapping.csv")
-)
 
 # Taxonomic coverage summary ---------------------------------------------------
 # This table is especially important because the proportion of ASVs assigned to
@@ -608,71 +587,31 @@ family_totals <- make_contrast_totals(family_pairwise)
 family_directions <- make_direction_summary(family_pairwise)
 family_recurrence <- make_recurrence(family_pairwise, "Family")
 
-# Save MAIN genus-level result tables -----------------------------------------
+# Save the essential differential-abundance result tables only.
+# Each taxonomic level has one complete table and one FDR-significant subset.
 readr::write_csv(
   genus_pairwise,
-  file.path(tables_dir, "MAIN_Genus_all_pairwise_abundance_results.csv")
+  file.path(tables_dir, "genus_differential_abundance_all_pairwise_results.csv")
 )
 readr::write_csv(
   genus_significant,
-  file.path(tables_dir, "MAIN_Genus_significant_pairwise_q0.05.csv")
+  file.path(tables_dir, "genus_differential_abundance_significant_results.csv")
 )
-readr::write_csv(
-  genus_totals,
-  file.path(tables_dir, "MAIN_Genus_counts_by_contrast.csv")
-)
-readr::write_csv(
-  genus_directions,
-  file.path(tables_dir, "MAIN_Genus_direction_summary.csv")
-)
-readr::write_csv(
-  genus_recurrence,
-  file.path(tables_dir, "MAIN_Genus_recurrence.csv")
-)
-
-
-# Save SUPPLEMENTARY family-level result tables -------------------------------
 readr::write_csv(
   family_pairwise,
-  file.path(tables_dir, "SUPP_Family_all_pairwise_abundance_results.csv")
+  file.path(tables_dir, "family_differential_abundance_all_pairwise_results.csv")
 )
 readr::write_csv(
   family_significant,
-  file.path(tables_dir, "SUPP_Family_significant_pairwise_q0.05.csv")
+  file.path(tables_dir, "family_differential_abundance_significant_results.csv")
 )
-readr::write_csv(
-  family_totals,
-  file.path(tables_dir, "SUPP_Family_counts_by_contrast.csv")
-)
-readr::write_csv(
-  family_directions,
-  file.path(tables_dir, "SUPP_Family_direction_summary.csv")
-)
-readr::write_csv(
-  family_recurrence,
-  file.path(tables_dir, "SUPP_Family_recurrence.csv")
-)
-
-# Save SUPPLEMENTARY ASV-level result tables ----------------------------------
 readr::write_csv(
   asv_pairwise,
-  file.path(tables_dir, "SUPP_ASV_all_pairwise_abundance_results.csv")
+  file.path(tables_dir, "ASV_differential_abundance_all_pairwise_results.csv")
 )
 readr::write_csv(
   asv_significant,
-  file.path(tables_dir, "SUPP_ASV_significant_pairwise_q0.05.csv")
-)
-readr::write_csv(
-  asv_totals,
-  file.path(tables_dir, "SUPP_ASV_counts_by_contrast.csv")
-)
-readr::write_csv(
-  asv_directions,
-  file.path(tables_dir, "SUPP_ASV_direction_summary.csv")
-)
-readr::write_csv(
-  asv_recurrence,
-  file.path(tables_dir, "SUPP_ASV_recurrence.csv")
+  file.path(tables_dir, "ASV_differential_abundance_significant_results.csv")
 )
 
 # MAIN FIGURE 1: number of significant genera ---------------------------------
@@ -699,7 +638,7 @@ p_genus_counts <- ggplot2::ggplot(
   ggplot2::theme_classic(base_size = 11)
 
 ggplot2::ggsave(
-  file.path(figures_dir, "MAIN_Figure_1_significant_genus_counts.pdf"),
+  file.path(figures_dir, "genus_significant_feature_counts.pdf"),
   p_genus_counts,
   width = 8,
   height = 5.5
@@ -751,7 +690,7 @@ p_genus_heatmap <- ggplot2::ggplot(
 genus_heatmap_height <- max(6, 0.28 * length(selected_genera) + 2)
 
 ggplot2::ggsave(
-  file.path(figures_dir, "MAIN_Figure_2_genus_coefficient_heatmap.pdf"),
+  file.path(figures_dir, "genus_differential_abundance_effect_heatmap.pdf"),
   p_genus_heatmap,
   width = 10.5,
   height = genus_heatmap_height
@@ -794,7 +733,7 @@ p_full_genus_heatmap <- ggplot2::ggplot(
   )
 
 ggplot2::ggsave(
-  file.path(figures_dir, "SUPP_Figure_full_genus_coefficient_heatmap.pdf"),
+  file.path(figures_dir, "genus_all_significant_effect_heatmap.pdf"),
   p_full_genus_heatmap,
   width = 10.5,
   height = max(7, 0.25 * length(all_significant_genera) + 2)
@@ -840,7 +779,7 @@ if (length(all_significant_families) > 0) {
     )
 
   ggplot2::ggsave(
-    file.path(figures_dir, "SUPP_Figure_family_coefficient_heatmap.pdf"),
+    file.path(figures_dir, "family_differential_abundance_effect_heatmap.pdf"),
     p_family_heatmap,
     width = 10.5,
     height = max(6, 0.30 * length(all_significant_families) + 2)
@@ -915,7 +854,7 @@ p_asv_heatmap <- ggplot2::ggplot(
 asv_heatmap_height <- max(7, 0.22 * length(asv_recurrence_order) + 2)
 
 ggplot2::ggsave(
-  file.path(figures_dir, "SUPP_Figure_ASV_coefficient_heatmap.pdf"),
+  file.path(figures_dir, "ASV_differential_abundance_effect_heatmap.pdf"),
   p_asv_heatmap,
   width = 10.5,
   height = asv_heatmap_height
@@ -1400,8 +1339,8 @@ combined_DA_figure <- cowplot::ggdraw() +
 
 ggplot2::ggsave(
   filename = file.path(
-    output_dir,
-    "MAIN_Differential_abundance_integrated.pdf"
+    figures_dir,
+    "differential_abundance_summary_figure.pdf"
   ),
   plot = combined_DA_figure,
   width = 8,

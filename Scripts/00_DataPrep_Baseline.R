@@ -541,3 +541,26 @@ stopifnot(all(rownames(ps_meta) == sample_names(ps_all)))
 
 ## add updated metadata back
 sample_data(ps_all) <- sample_data(ps_meta)
+
+
+# ------------------------------------------------------------------------------
+# SAVE THE FINAL ANALYSIS OBJECT
+# ------------------------------------------------------------------------------
+# All downstream scripts load this object directly instead of re-running the
+# complete preprocessing workflow. Re-run this script only when the raw data,
+# metadata, filtering decisions, taxonomy, or phylogenetic tree change.
+processed_data_dir <- "Data/Processed"
+dir.create(processed_data_dir, recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(
+  ps_all,
+  file = file.path(processed_data_dir, "baseline_microbiome_phyloseq.rds")
+)
+
+readr::write_csv(
+  asv_key,
+  file.path(processed_data_dir, "baseline_ASV_sequence_key.csv")
+)
+
+cat("\nSaved final baseline phyloseq object to: ",
+    file.path(processed_data_dir, "baseline_microbiome_phyloseq.rds"), "\n", sep = "")
