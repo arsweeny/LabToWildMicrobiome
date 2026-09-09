@@ -1,0 +1,1329 @@
+###############################################################################
+# BETA DIVERSITY ANALYSIS — BASELINE SAMPLES
+#
+# Purpose
+#   1. Prepare a filtered phyloseq object.
+#   2. Retain one pre-intervention sample per mouse (closest to Day 0).
+#   3. Calculate Bray–Curtis, Jaccard, weighted UniFrac and unweighted UniFrac.
+#   4. Create and save a four-panel beta-diversity figure.
+#   5. Run overall PERMANOVA, pairwise PERMANOVA and beta-dispersion tests.
+#   6. Export all relevant results to one Excel workbook with multiple sheets.
+#   7. Create and save the combined alpha- and beta-diversity figure.
+#
+# Existing output directories required
+#   Output/
+#   Output/Graphs/
+#
+###############################################################################
+
+# LOAD PACKAGES AND PREPROCESSED DATA ------------------------------------
+
+rm(list = ls())
+
+library(ape)
+library(dplyr)
+library(ggplot2)
+library(microbiome)
+library(openxlsx)
+library(pairwiseAdonis)
+library(patchwork)
+library(phyloseq)
+library(tibble)
+library(tidyr)
+library(vegan)
+library(ggpubr)
+library(ggforce)
+library(picante)
+
+# Load the final preprocessed baseline phyloseq object.
+# Run Scripts/00_DataPrep_Baseline.R first whenever preprocessing changes.
+ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
+
+results_dir <- "Results/02_Beta_Diversity"
+tables_dir <- file.path(results_dir, "Tables")
+figures_dir <- file.path(results_dir, "Figures")
+dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
+# ANALYSIS SETTINGS -------------------------------------------------------
+
+cohort_order <- c(
+  "Wild:As",
+  "Wild-like:As",
+  "Lab-like:As",
+  "Lab:Mm"
+)
+
+cohort_colours <- c(
+  "Wild:As"      = "#74C476",
+  "Wild-like:As" = "#6BAED6",
+  "Lab-like:As"  = "#BC80BD",
+  "Lab:Mm"       = "#FB8072"
+)
+
+cohort_labels <- c(
+  "Wild:As"      = "Wild:As",
+  "Wild-like:As" = "Wild-like:As",
+  "Lab-like:As"  = "Lab-like:As",
+  "Lab:Mm"       = "Lab:Mm"
+)
+
+
+
+# PREPARE THE PHYLOSEQ OBJECT ---------------------------------------------
+
+## retain ASVs detected at >= 5 counts and present in >= 10% of samples.
+ps_core <- microbiome::core(
+  ps_all,
+  detection = 5,
+  prevalence = 0.10
+)
+
+required_metadata <- c(
+  "SampleOrigin",
+  "Sex",
+  "SeqPlate",
+  "mouse_ID_dataset"
+)
+
+metadata_complete <- data.frame(
+  sample_data(ps_core),
+  check.names = FALSE
+)
+
+keep_samples <- complete.cases(
+  metadata_complete[, required_metadata, drop = FALSE]
+)
+
+ps_core <- prune_samples(keep_samples, ps_core)
+ps_core <- prune_taxa(taxa_sums(ps_core) > 0, ps_core)
+
+if (!is.null(phy_tree(ps_core, errorIfNULL = FALSE))) {
+  retained_taxa <- taxa_names(ps_core)
+  pruned_tree <- ape::keep.tip(
+    phy_tree(ps_core),
+    intersect(phy_tree(ps_core)$tip.label, retained_taxa)
+  )
+  phy_tree(ps_core) <- pruned_tree
+}
+
+## retain one sample per mouse
+## Rules:
+##   - Wild:As: retain one sample per mouse, because Timept is NA.
+##   - Other cohorts: retain the sample closest to Day 0.
+
+sample_metadata <- data.frame(
+  sample_data(ps_core),
+  check.names = FALSE
+) |>
+  tibble::rownames_to_column("PhyloseqSampleID") |>
+  dplyr::mutate(
+    Timept_numeric = suppressWarnings(
+      as.numeric(as.character(Timept))
+    )
+  )
+
+## Wild:As sample selection
+selected_wild <- sample_metadata |>
+  dplyr::filter(SampleOrigin == "Wild:As") |>
+  dplyr::arrange(
+    mouse_ID_dataset,
+    PhyloseqSampleID
+  ) |>
+  dplyr::group_by(mouse_ID_dataset) |>
+  dplyr::slice_head(n = 1) |>
+  dplyr::ungroup()
+
+
+## remain cohort sample selection
+selected_other <- sample_metadata |>
+  dplyr::filter(SampleOrigin != "Wild:As") |>
+  dplyr::filter(!is.na(Timept_numeric)) |>
+  dplyr::arrange(
+    mouse_ID_dataset,
+    abs(Timept_numeric),
+    dplyr::desc(Timept_numeric),
+    PhyloseqSampleID
+  ) |>
+  dplyr::group_by(mouse_ID_dataset) |>
+  dplyr::slice_head(n = 1) |>
+  dplyr::ungroup()
+
+## combine selected samples
+selected_samples <- dplyr::bind_rows(
+  selected_wild,
+  selected_other
+)
+
+## create the one-sample-per-mouse phyloseq object
+ps_single <- phyloseq::prune_samples(
+  selected_samples$PhyloseqSampleID,
+  ps_core
+)
+
+ps_single <- phyloseq::prune_taxa(
+  phyloseq::taxa_sums(ps_single) > 0,
+  ps_single
+)
+
+table(
+  sample_data(ps_single)$SampleOrigin,
+  useNA = "ifany"
+)
+
+mouse_counts_after_selection <- data.frame(
+  sample_data(ps_single),
+  check.names = FALSE
+) |>
+  dplyr::count(
+    mouse_ID_dataset,
+    name = "n_samples"
+  )
+
+stopifnot(
+  all(mouse_counts_after_selection$n_samples == 1)
+)
+
+# FORMAT METADATA ---------------------------------------------------------
+
+ps_comp <- microbiome::transform(
+  ps_single,
+  transform = "compositional"
+)
+
+sample_data(ps_single)$SampleOrigin <- factor(
+  sample_data(ps_single)$SampleOrigin,
+  levels = cohort_order
+)
+
+sample_data(ps_comp)$SampleOrigin <- factor(
+  sample_data(ps_comp)$SampleOrigin,
+  levels = cohort_order
+)
+
+ps_meta <- data.frame(
+  sample_data(ps_comp),
+  check.names = FALSE
+)
+
+ps_meta$SampleOrigin <- factor(
+  ps_meta$SampleOrigin,
+  levels = cohort_order
+)
+ps_meta$Sex <- factor(ps_meta$Sex)
+ps_meta$SeqPlate <- factor(ps_meta$SeqPlate)
+
+stopifnot(
+  identical(rownames(ps_meta), sample_names(ps_comp))
+)
+
+cohort_by_plate <- as.data.frame.matrix(
+  table(ps_meta$SampleOrigin, ps_meta$SeqPlate)
+) |>
+  rownames_to_column("SampleOrigin")
+
+cohort_by_sex <- as.data.frame.matrix(
+  table(ps_meta$SampleOrigin, ps_meta$Sex)
+) |>
+  rownames_to_column("SampleOrigin")
+
+
+# beta diversity ordination plots -----------------------------------------
+
+ps_comp <- microbiome::transform(ps_single, "compositional") # from counts to relative abundances
+ps_meta <- meta(ps_comp) # metadata
+ps_bray <- ordinate(ps_comp, "PCoA", "bray")
+ps_unif <- ordinate(ps_single, "PCoA", "unifrac")
+ps_wunif <- ordinate(ps_single, "PCoA", "wunifrac")
+ps_jaccard <- ordinate(ps_comp, method = "PCoA", distance = "jaccard", binary = TRUE)
+
+## plot Bray Curtis ordination
+All_Bray <- plot_ordination(ps_comp, ps_bray, color="SampleOrigin") +
+  geom_point(aes(), size= 2) + 
+  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) + 
+  theme_bw(base_size = 16) +
+  theme(plot.title = element_text(hjust = 0, size = 16),
+        legend.position = "top", legend.title = element_blank()) +
+  stat_ellipse() + 
+  ggtitle('Bray-Curtis')
+All_Bray
+
+## plot Weighted Unifrac ordination
+All_Wunif <- plot_ordination(ps_comp, ps_wunif, color="SampleOrigin") +
+  geom_point(aes(), size= 2) + 
+  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) + 
+  theme_bw(base_size = 16) +
+  theme(plot.title = element_text(hjust = 0, size = 16),
+        legend.position = "top", legend.title = element_blank()) +
+  stat_ellipse() + 
+  ggtitle('Weighted Unifrac')
+All_Wunif
+
+## plot Weighted Unifrac ordination
+All_Unif <- plot_ordination(ps_comp, ps_unif, color="SampleOrigin") +
+  geom_point(aes(), size= 2) + 
+  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) + 
+  theme_bw(base_size = 16) +
+  theme(plot.title = element_text(hjust = 0, size = 16),
+        legend.position = "top", legend.title = element_blank()) +
+  stat_ellipse() + 
+  ggtitle('Unweighted Unifrac')
+All_Unif
+
+## plot jaccard ordination 
+All_Jaccard <- plot_ordination(ps_comp, ps_jaccard, color = "SampleOrigin") +
+  geom_point(size = 2) +
+  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD", "#FB8072")) +
+  theme_bw(base_size = 16) +
+  theme(
+    plot.title = element_text(hjust = 0, size = 16),
+    legend.position = "top",
+    legend.title = element_blank()
+  ) +
+  stat_ellipse() +
+  ggtitle("Jaccard")
+All_Jaccard
+
+## remove individual legends
+All_Bray_clean <- All_Bray + 
+  theme(legend.position = "none")
+All_Jaccard_clean <- All_Jaccard + 
+  theme(legend.position = "none")
+All_Wunif_clean <- All_Wunif + 
+  theme(legend.position = "none")
+All_Unif_clean <- All_Unif + 
+  theme(legend.position = "none")
+
+## arrange plots
+beta_pan <- ggarrange(
+  All_Bray_clean,
+  All_Jaccard_clean,
+  All_Wunif_clean,
+  All_Unif_clean,
+  ncol = 2,
+  nrow = 2,
+  labels = c("A", "B", "C", "D"),
+  font.label = list(size = 16, face = "bold"),
+  common.legend = TRUE,
+  legend = "top",
+  align = "hv"
+)
+
+## save final plot
+pdf(file.path(figures_dir, "beta_diversity_PCoA_by_sample_origin.pdf"), width = 10, height = 10)
+print(beta_pan)
+dev.off()
+
+
+
+# STATISTICAL ANALYSES ----------------------------------------------------
+
+## Set cohort order
+ps_meta$SampleOrigin <- factor(
+  ps_meta$SampleOrigin,
+  levels = c(
+    "Lab:Mm",
+    "Lab-like:As",
+    "Wild-like:As",
+    "Wild:As"
+  )
+)
+
+## Sequencing plate is a categorical batch variable
+ps_meta$SeqPlate <- factor(
+  ps_meta$SeqPlate,
+  levels = c(
+    "8", "7", "6", "5",
+    "4", "3", "2", "1"
+  )
+)
+
+## Sex should also be categorical
+ps_meta$Sex <- factor(ps_meta$Sex)
+
+## Confirm metadata and phyloseq samples are in the same order
+stopifnot(
+  identical(
+    rownames(ps_meta),
+    sample_names(ps_comp)
+  )
+)
+
+# Bray–Curtis: abundance-based
+bray_ps <- phyloseq::distance(
+  physeq = ps_comp,
+  method = "bray"
+)
+
+# Jaccard: presence/absence
+jaccard_ps <- phyloseq::distance(
+  physeq = ps_comp,
+  method = "jaccard",
+  binary = TRUE
+)
+
+# Weighted UniFrac: count object with phylogenetic tree
+wunif_ps <- phyloseq::distance(
+  physeq = ps_single,
+  method = "wunifrac"
+)
+
+# Unweighted UniFrac: count object with phylogenetic tree
+unif_ps <- phyloseq::distance(
+  physeq = ps_single,
+  method = "unifrac"
+)
+
+
+identical(
+  sample_names(ps_comp),
+  sample_names(ps_single)
+)
+
+identical(
+  sample_names(ps_comp),
+  rownames(ps_meta)
+)
+
+
+
+# PERMANOVA AND BETA-DISPERSION ANALYSES ----------------------------------
+## Model: Distance ~ SampleOrigin + Sex + SeqPlate
+## each mouse contributes one sample, so no strata argument is required.
+set.seed(999)
+
+
+# BRAY–CURTIS -------------------------------------------------------------
+
+adonis_bray_all <- vegan::adonis2(
+  bray_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_bray_all
+
+## pairwise PERMANOVA between cohorts
+pairwise_bray <- pairwiseAdonis::pairwise.adonis2(
+  bray_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+pairwise_bray
+
+## homogeneity of multivariate dispersion
+bd_bray <- vegan::betadisper(bray_ps, group = ps_meta$SampleOrigin)
+bray_disp_anova <- anova(bd_bray)
+bray_disp_anova
+
+bray_disp_perm_test <- vegan::permutest(bd_bray, permutations = 9999, pairwise = TRUE)
+bray_disp_perm_test
+
+plot(bd_bray, main = "Bray–Curtis dispersion")
+
+
+
+# WEIGHTED UNIFRAC --------------------------------------------------------
+
+adonis_wunif_all <- vegan::adonis2(
+  wunif_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_wunif_all
+
+## pairwise PERMANOVA between cohorts
+pairwise_wunif <- pairwiseAdonis::pairwise.adonis2(
+  wunif_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+pairwise_wunif
+
+## homogeneity of multivariate dispersion
+bd_wunif <- vegan::betadisper(wunif_ps, group = ps_meta$SampleOrigin)
+wunif_disp_anova <- anova(bd_wunif)
+wunif_disp_anova
+
+wunif_disp_perm_test <- vegan::permutest(bd_wunif, permutations = 9999, pairwise = TRUE)
+wunif_disp_perm_test
+
+plot(bd_wunif, main = "Weighted UniFrac dispersion")
+
+
+# UNWEIGHTED UNIFRAC ------------------------------------------------------
+
+adonis_unif_all <- vegan::adonis2(
+  unif_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_unif_all
+
+## pairwise PERMANOVA between cohorts
+pairwise_unif <- pairwiseAdonis::pairwise.adonis2(
+  unif_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+pairwise_unif
+
+## homogeneity of multivariate dispersion
+bd_unif <- vegan::betadisper(unif_ps, group = ps_meta$SampleOrigin)
+unif_disp_anova <- anova(bd_unif)
+unif_disp_anova
+
+unif_disp_perm_test <- vegan::permutest(bd_unif, permutations = 9999, pairwise = TRUE)
+unif_disp_perm_test
+
+plot(bd_unif, main = "Unweighted UniFrac dispersion")
+
+
+# JACCARD -----------------------------------------------------------------
+
+adonis_jaccard_all <- vegan::adonis2(
+  jaccard_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+adonis_jaccard_all
+
+## pairwise PERMANOVA between cohorts
+pairwise_jaccard <- pairwiseAdonis::pairwise.adonis2(
+  jaccard_ps ~ SampleOrigin + Sex,
+  data = ps_meta,
+  permutations = 9999,
+  by = "margin"
+)
+pairwise_jaccard
+
+## homogeneity of multivariate dispersion
+bd_jaccard <- vegan::betadisper(jaccard_ps, group = ps_meta$SampleOrigin)
+jaccard_disp_anova <- anova(bd_jaccard)
+jaccard_disp_anova
+
+jaccard_disp_perm_test <- vegan::permutest(bd_jaccard, permutations = 9999, pairwise = TRUE)
+jaccard_disp_perm_test
+
+plot(bd_jaccard, main = "Jaccard dispersion")
+
+
+
+# EXTRACT AND EXPORT PERMANOVA AND BETA-DISPERSION RESULTS ----------------
+
+add_term_column <- function(x) {
+  x <- as.data.frame(x)
+  x$Fixed_effect <- rownames(x)
+  rownames(x) <- NULL
+  x <- x[, c(
+    "Fixed_effect",
+    setdiff(names(x), "Fixed_effect")
+  )]
+  
+  return(x)
+}
+
+## Overall PERMANOVA results
+bray_adonis_df <- add_term_column(adonis_bray_all)
+wunif_adonis_df <- add_term_column(adonis_wunif_all)
+unif_adonis_df <- add_term_column(adonis_unif_all)
+jaccard_adonis_df <- add_term_column(adonis_jaccard_all)
+
+## extract pairwise PERMANOVA results
+extract_pairwise <- function(x) {
+  
+  results <- list()
+  
+  for (i in names(x)) {
+    
+    if (i != "parent_call") {
+      
+      temp <- as.data.frame(
+        x[[i]]
+      )
+      
+      # Add model terms as a normal column
+      temp$Fixed_effect <- rownames(temp)
+      rownames(temp) <- NULL
+      
+      # Add the cohort comparison
+      temp$Comparison <- i
+      
+      # Arrange columns in a logical order
+      temp <- temp[, c(
+        "Comparison",
+        "Fixed_effect",
+        setdiff(
+          names(temp),
+          c("Comparison", "Fixed_effect")
+        )
+      )]
+      
+      results[[i]] <- temp
+    }
+  }
+  
+  pairwise_df <- do.call(
+    rbind,
+    results
+  )
+  
+  rownames(pairwise_df) <- NULL
+  
+  return(pairwise_df)
+}
+
+
+bray_pairwise_df <- extract_pairwise(pairwise_bray)
+wunif_pairwise_df <- extract_pairwise(pairwise_wunif)
+unif_pairwise_df <- extract_pairwise(pairwise_unif)
+jaccard_pairwise_df <- extract_pairwise(pairwise_jaccard)
+
+## extract beta-dispersion ANOVA results
+bray_disp_anova_df <- add_term_column(bray_disp_anova)
+wunif_disp_anova_df <- add_term_column(wunif_disp_anova)
+unif_disp_anova_df <- add_term_column(unif_disp_anova)
+jaccard_disp_anova_df <- add_term_column(jaccard_disp_anova)
+
+## extract beta-dispersion permutation-test results
+bray_disp_perm_df <- add_term_column(bray_disp_perm_test$tab)
+wunif_disp_perm_df <- add_term_column(wunif_disp_perm_test$tab)
+unif_disp_perm_df <- add_term_column(unif_disp_perm_test$tab)
+jaccard_disp_perm_df <- add_term_column(jaccard_disp_perm_test$tab)
+
+## add distance-metric labels
+bray_adonis_df$Distance <- "Bray-Curtis"
+bray_pairwise_df$Distance <- "Bray-Curtis"
+bray_disp_anova_df$Distance <- "Bray-Curtis"
+bray_disp_perm_df$Distance <- "Bray-Curtis"
+
+wunif_adonis_df$Distance <- "Weighted UniFrac"
+wunif_pairwise_df$Distance <- "Weighted UniFrac"
+wunif_disp_anova_df$Distance <- "Weighted UniFrac"
+wunif_disp_perm_df$Distance <- "Weighted UniFrac"
+
+unif_adonis_df$Distance <- "Unweighted UniFrac"
+unif_pairwise_df$Distance <- "Unweighted UniFrac"
+unif_disp_anova_df$Distance <- "Unweighted UniFrac"
+unif_disp_perm_df$Distance <- "Unweighted UniFrac"
+
+jaccard_adonis_df$Distance <- "Jaccard"
+jaccard_pairwise_df$Distance <- "Jaccard"
+jaccard_disp_anova_df$Distance <- "Jaccard"
+jaccard_disp_perm_df$Distance <- "Jaccard"
+
+## optional helper to move Distance to the first column
+move_distance_first <- function(x) {
+  
+  x[, c(
+    "Distance",
+    setdiff(names(x), "Distance")
+  )]
+}
+
+bray_adonis_df <- move_distance_first(bray_adonis_df)
+bray_pairwise_df <- move_distance_first(bray_pairwise_df)
+bray_disp_anova_df <- move_distance_first(bray_disp_anova_df)
+bray_disp_perm_df <- move_distance_first(bray_disp_perm_df)
+
+wunif_adonis_df <- move_distance_first(wunif_adonis_df)
+wunif_pairwise_df <- move_distance_first(wunif_pairwise_df)
+wunif_disp_anova_df <- move_distance_first(wunif_disp_anova_df)
+wunif_disp_perm_df <- move_distance_first(wunif_disp_perm_df)
+
+unif_adonis_df <- move_distance_first(unif_adonis_df)
+unif_pairwise_df <- move_distance_first(unif_pairwise_df)
+unif_disp_anova_df <- move_distance_first(unif_disp_anova_df)
+unif_disp_perm_df <- move_distance_first(unif_disp_perm_df)
+
+jaccard_adonis_df <- move_distance_first(jaccard_adonis_df)
+jaccard_pairwise_df <- move_distance_first(jaccard_pairwise_df)
+jaccard_disp_anova_df <- move_distance_first(jaccard_disp_anova_df)
+jaccard_disp_perm_df <- move_distance_first(jaccard_disp_perm_df)
+
+## export one Excel workbook with multiple worksheets
+openxlsx::write.xlsx(
+  
+  x = list(
+    
+    # Bray–Curtis
+    Bray_PERMANOVA = bray_adonis_df,
+    Bray_pairwise = bray_pairwise_df,
+    Bray_dispersion_ANOVA = bray_disp_anova_df,
+    Bray_dispersion_perm = bray_disp_perm_df,
+    
+    # Weighted UniFrac
+    WUniFrac_PERMANOVA = wunif_adonis_df,
+    WUniFrac_pairwise = wunif_pairwise_df,
+    WUniFrac_dispersion_ANOVA = wunif_disp_anova_df,
+    WUniFrac_dispersion_perm = wunif_disp_perm_df,
+    
+    # Unweighted UniFrac
+    UniFrac_PERMANOVA = unif_adonis_df,
+    UniFrac_pairwise = unif_pairwise_df,
+    UniFrac_dispersion_ANOVA = unif_disp_anova_df,
+    UniFrac_dispersion_perm = unif_disp_perm_df,
+    
+    # Jaccard
+    Jaccard_PERMANOVA = jaccard_adonis_df,
+    Jaccard_pairwise = jaccard_pairwise_df,
+    Jaccard_dispersion_ANOVA = jaccard_disp_anova_df,
+    Jaccard_dispersion_perm = jaccard_disp_perm_df
+  ),
+  
+  file = file.path(tables_dir, "beta_diversity_PERMANOVA_and_dispersion_results.xlsx"),
+  
+  overwrite = TRUE
+)
+
+file.exists(file.path(tables_dir, "beta_diversity_PERMANOVA_and_dispersion_results.xlsx"))
+
+
+
+# CREATE THE COMBINED ALPHA- AND BETA-DIVERSITY FIGURE --------------------
+#
+# The alpha-diversity panels are recreated here directly from ps_all rather
+# than loaded from 01_AlphaDiversity_Baseline.R. This keeps the combined figure
+# fully self-contained in the beta-diversity script and makes it easy to tweak
+# the alpha panels specifically for the combined manuscript figure.
+#
+# These steps intentionally reproduce the Shannon and Faith's PD plots used in
+# the original script. They do not replace the full alpha-diversity analysis in
+# 01_AlphaDiversity_Baseline.R.
+
+# Rarefy the same preprocessed ps_all object used by the alpha-diversity script.
+ps_rare_combined <- phyloseq::rarefy_even_depth(
+  ps_all,
+  rngseed = 123,
+  replace = FALSE
+)
+
+# Calculate only the alpha-diversity metrics required for the combined figure.
+alpha_combined <- data.frame(
+  Shannon = phyloseq::estimate_richness(
+    ps_rare_combined,
+    measures = "Shannon"
+  )$Shannon,
+  FaithPD = picante::pd(
+    samp = data.frame(phyloseq::otu_table(ps_rare_combined)),
+    tree = phyloseq::phy_tree(ps_rare_combined)
+  )[, 1],
+  SampleOrigin = phyloseq::sample_data(ps_rare_combined)$SampleOrigin,
+  check.names = FALSE
+)
+
+alpha_combined$SampleOrigin <- factor(
+  alpha_combined$SampleOrigin,
+  levels = cohort_order
+)
+
+# Group means and standard errors, matching the original alpha-diversity plots.
+alpha_shan_combined <- alpha_combined |>
+  dplyr::group_by(SampleOrigin) |>
+  dplyr::summarise(
+    mean = mean(Shannon),
+    se = plotrix::std.error(Shannon),
+    .groups = "drop"
+  )
+
+alpha_pd_combined <- alpha_combined |>
+  dplyr::group_by(SampleOrigin) |>
+  dplyr::summarise(
+    mean = mean(FaithPD),
+    se = plotrix::std.error(FaithPD),
+    .groups = "drop"
+  )
+
+# Recreate the original Shannon panel.
+shan_all_R <- alpha_combined |>
+  ggplot2::ggplot() +
+  ggforce::geom_sina(
+    ggplot2::aes(
+      x = SampleOrigin,
+      y = Shannon,
+      colour = SampleOrigin
+    ),
+    alpha = 1.0,
+    size = 2,
+    show.legend = FALSE
+  ) +
+  ggplot2::geom_point(
+    data = alpha_shan_combined,
+    ggplot2::aes(x = SampleOrigin, y = mean),
+    color = "black",
+    size = 3
+  ) +
+  ggplot2::geom_errorbar(
+    data = alpha_shan_combined,
+    ggplot2::aes(
+      x = SampleOrigin,
+      ymin = mean - se,
+      ymax = mean + se
+    ),
+    width = 0.3,
+    linewidth = 0.5
+  ) +
+  ggplot2::theme_bw(base_size = 20) +
+  ggplot2::labs(y = "Shannon Diversity", x = "") +
+  ggplot2::scale_colour_manual(values = cohort_colours) +
+  ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(angle = 45))
+
+# Recreate the original Faith's phylogenetic diversity panel.
+pd_all_R <- alpha_combined |>
+  ggplot2::ggplot() +
+  ggforce::geom_sina(
+    ggplot2::aes(
+      x = SampleOrigin,
+      y = FaithPD,
+      colour = SampleOrigin
+    ),
+    alpha = 1.0,
+    size = 2,
+    show.legend = FALSE
+  ) +
+  ggplot2::geom_point(
+    data = alpha_pd_combined,
+    ggplot2::aes(x = SampleOrigin, y = mean),
+    color = "black",
+    size = 3
+  ) +
+  ggplot2::geom_errorbar(
+    data = alpha_pd_combined,
+    ggplot2::aes(
+      x = SampleOrigin,
+      ymin = mean - se,
+      ymax = mean + se
+    ),
+    width = 0.3,
+    linewidth = 0.5
+  ) +
+  ggplot2::theme_bw(base_size = 20) +
+  ggplot2::labs(y = "Phylogenetic Diversity", x = "") +
+  ggplot2::scale_colour_manual(values = cohort_colours) +
+  ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(angle = 45))
+
+common_theme <- theme_classic(base_size = 12) +
+  theme(
+    panel.grid.major = element_line(
+      colour = "grey90",
+      linewidth = 0.35
+    ),
+    panel.grid.minor = element_blank(),
+    axis.title = element_text(size = 12, colour = "black"),
+    axis.text = element_text(size = 10, colour = "black"),
+    plot.title = element_text(
+      size = 14,
+      face = "bold",
+      hjust = 0.5,
+      margin = margin(b = 6)
+    ),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10),
+    plot.margin = margin(8, 8, 8, 8)
+  )
+
+shan_all_final <- shan_all_R +
+  scale_x_discrete(labels = cohort_labels) +
+  labs(x = NULL, y = "Shannon diversity") +
+  common_theme +
+  guides(colour = "none", fill = "none") +
+  theme(
+    axis.text.x = element_text(
+      angle = 35,
+      hjust = 1,
+      vjust = 1
+    )
+  )
+
+pd_all_final <- pd_all_R +
+  scale_x_discrete(labels = cohort_labels) +
+  labs(x = NULL, y = "Faith's phylogenetic diversity") +
+  common_theme +
+  guides(colour = "none", fill = "none") +
+  theme(
+    axis.text.x = element_text(
+      angle = 35,
+      hjust = 1,
+      vjust = 1
+    )
+  )
+
+All_Bray_final <- All_Bray +
+  common_theme +
+  theme(legend.position = "bottom")
+
+All_Jaccard_final <- All_Jaccard +
+  common_theme +
+  guides(colour = "none")
+
+diversity_panel <- wrap_plots(
+  A = shan_all_final,
+  B = pd_all_final,
+  C = All_Bray_final,
+  D = All_Jaccard_final,
+  design = "AB\nCD"
+) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(size = 16, face = "bold")
+    )
+  )
+
+print(diversity_panel)
+
+ggsave(
+  filename = file.path(
+    figures_dir,
+    "combined_alpha_and_beta_diversity.pdf"
+  ),
+  plot = diversity_panel,
+  width = 8,
+  height = 8,
+  units = "in",
+  device = cairo_pdf
+)
+
+
+# # create non-confounding version without Wild:As samples ------------------
+
+# ##  to create dataset with no plate confounding with sample origin
+# ps_noWild <- subset_samples(
+#   ps_single,
+#   SampleOrigin != "Wild:As"
+# )
+# 
+# # Remove taxa that are now absent
+# ps_noWild <- prune_taxa(
+#   taxa_sums(ps_noWild) > 0,
+#   ps_noWild
+# )
+# table(sample_data(ps_noWild)$SampleOrigin)
+# 
+# 
+# # FORMAT METADATA ---------------------------------------------------------
+# 
+# ps_comp <- microbiome::transform(
+#   ps_noWild,
+#   transform = "compositional"
+# )
+# 
+# sample_data(ps_noWild)$SampleOrigin <- factor(
+#   sample_data(ps_noWild)$SampleOrigin,
+#   levels = cohort_order
+# )
+# 
+# sample_data(ps_comp)$SampleOrigin <- factor(
+#   sample_data(ps_comp)$SampleOrigin,
+#   levels = cohort_order
+# )
+# 
+# ps_meta <- data.frame(
+#   sample_data(ps_comp),
+#   check.names = FALSE
+# )
+# 
+# ps_meta$SampleOrigin <- factor(
+#   ps_meta$SampleOrigin,
+#   levels = cohort_order
+# )
+# ps_meta$Sex <- factor(ps_meta$Sex)
+# ps_meta$SeqPlate <- factor(ps_meta$SeqPlate)
+# 
+# stopifnot(
+#   identical(rownames(ps_meta), sample_names(ps_comp))
+# )
+# 
+# cohort_by_plate <- as.data.frame.matrix(
+#   table(ps_meta$SampleOrigin, ps_meta$SeqPlate)
+# ) |>
+#   rownames_to_column("SampleOrigin")
+# 
+# cohort_by_sex <- as.data.frame.matrix(
+#   table(ps_meta$SampleOrigin, ps_meta$Sex)
+# ) |>
+#   rownames_to_column("SampleOrigin")
+# 
+# 
+# # beta diversity ordination plots -----------------------------------------
+# 
+# ps_comp <- microbiome::transform(ps_noWild, "compositional") # from counts to relative abundances
+# ps_meta <- meta(ps_comp) # metadata
+# ps_bray <- ordinate(ps_comp, "PCoA", "bray")
+# ps_unif <- ordinate(ps_single, "PCoA", "unifrac")
+# ps_wunif <- ordinate(ps_single, "PCoA", "wunifrac")
+# ps_jaccard <- ordinate(ps_comp, method = "PCoA", distance = "jaccard", binary = TRUE)
+# 
+# # STATISTICAL ANALYSES ----------------------------------------------------
+# 
+# ## Set cohort order
+# ps_meta$SampleOrigin <- factor(
+#   ps_meta$SampleOrigin,
+#   levels = c(
+#     "Lab:Mm",
+#     "Lab-like:As",
+#     "Wild-like:As",
+#     "Wild:As"
+#   )
+# )
+# 
+# ## Sequencing plate is a categorical batch variable
+# ps_meta$SeqPlate <- factor(
+#   ps_meta$SeqPlate,
+#   levels = c(
+#     "8", "7", "6", "5",
+#     "4", "3", "2", "1"
+#   )
+# )
+# 
+# ## Sex should also be categorical
+# ps_meta$Sex <- factor(ps_meta$Sex)
+# 
+# ## Confirm metadata and phyloseq samples are in the same order
+# stopifnot(
+#   identical(
+#     rownames(ps_meta),
+#     sample_names(ps_comp)
+#   )
+# )
+# 
+# # Bray–Curtis: abundance-based
+# bray_ps <- phyloseq::distance(
+#   physeq = ps_comp,
+#   method = "bray"
+# )
+# 
+# # Jaccard: presence/absence
+# jaccard_ps <- phyloseq::distance(
+#   physeq = ps_comp,
+#   method = "jaccard",
+#   binary = TRUE
+# )
+# 
+# # Weighted UniFrac: count object with phylogenetic tree
+# wunif_ps <- phyloseq::distance(
+#   physeq = ps_noWild,
+#   method = "wunifrac"
+# )
+# 
+# # Unweighted UniFrac: count object with phylogenetic tree
+# unif_ps <- phyloseq::distance(
+#   physeq = ps_noWild,
+#   method = "unifrac"
+# )
+# 
+# 
+# identical(
+#   sample_names(ps_comp),
+#   sample_names(ps_single)
+# )
+# 
+# identical(
+#   sample_names(ps_comp),
+#   rownames(ps_meta)
+# )
+# 
+# 
+# 
+# # PERMANOVA AND BETA-DISPERSION ANALYSES ----------------------------------
+# ## Model: Distance ~ SampleOrigin + Sex + SeqPlate
+# ## each mouse contributes one sample, so no strata argument is required.
+# set.seed(999)
+# 
+# 
+# # BRAY–CURTIS -------------------------------------------------------------
+# 
+# adonis_bray_all <- vegan::adonis2(
+#   bray_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# adonis_bray_all
+# 
+# ## pairwise PERMANOVA between cohorts
+# pairwise_bray <- pairwiseAdonis::pairwise.adonis2(
+#   bray_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# pairwise_bray
+# 
+# ## homogeneity of multivariate dispersion
+# bd_bray <- vegan::betadisper(bray_ps, group = ps_meta$SampleOrigin)
+# bray_disp_anova <- anova(bd_bray)
+# bray_disp_anova
+# 
+# bray_disp_perm_test <- vegan::permutest(bd_bray, permutations = 9999, pairwise = TRUE)
+# bray_disp_perm_test
+# 
+# plot(bd_bray, main = "Bray–Curtis dispersion")
+# 
+# 
+# 
+# # WEIGHTED UNIFRAC --------------------------------------------------------
+# 
+# adonis_wunif_all <- vegan::adonis2(
+#   wunif_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# adonis_wunif_all
+# 
+# ## pairwise PERMANOVA between cohorts
+# pairwise_wunif <- pairwiseAdonis::pairwise.adonis2(
+#   wunif_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# pairwise_wunif
+# 
+# ## homogeneity of multivariate dispersion
+# bd_wunif <- vegan::betadisper(wunif_ps, group = ps_meta$SampleOrigin)
+# wunif_disp_anova <- anova(bd_wunif)
+# wunif_disp_anova
+# 
+# wunif_disp_perm_test <- vegan::permutest(bd_wunif, permutations = 9999, pairwise = TRUE)
+# wunif_disp_perm_test
+# 
+# plot(bd_wunif, main = "Weighted UniFrac dispersion")
+# 
+# 
+# # UNWEIGHTED UNIFRAC ------------------------------------------------------
+# 
+# adonis_unif_all <- vegan::adonis2(
+#   unif_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# adonis_unif_all
+# 
+# ## pairwise PERMANOVA between cohorts
+# pairwise_unif <- pairwiseAdonis::pairwise.adonis2(
+#   unif_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# pairwise_unif
+# 
+# ## homogeneity of multivariate dispersion
+# bd_unif <- vegan::betadisper(unif_ps, group = ps_meta$SampleOrigin)
+# unif_disp_anova <- anova(bd_unif)
+# unif_disp_anova
+# 
+# unif_disp_perm_test <- vegan::permutest(bd_unif, permutations = 9999, pairwise = TRUE)
+# unif_disp_perm_test
+# 
+# plot(bd_unif, main = "Unweighted UniFrac dispersion")
+# 
+# 
+# # JACCARD -----------------------------------------------------------------
+# 
+# adonis_jaccard_all <- vegan::adonis2(
+#   jaccard_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# adonis_jaccard_all
+# 
+# ## pairwise PERMANOVA between cohorts
+# pairwise_jaccard <- pairwiseAdonis::pairwise.adonis2(
+#   jaccard_ps ~ SampleOrigin + Sex + SeqPlate,
+#   data = ps_meta,
+#   permutations = 9999,
+#   by = "margin"
+# )
+# pairwise_jaccard
+# 
+# ## homogeneity of multivariate dispersion
+# bd_jaccard <- vegan::betadisper(jaccard_ps, group = ps_meta$SampleOrigin)
+# jaccard_disp_anova <- anova(bd_jaccard)
+# jaccard_disp_anova
+# 
+# jaccard_disp_perm_test <- vegan::permutest(bd_jaccard, permutations = 9999, pairwise = TRUE)
+# jaccard_disp_perm_test
+# 
+# plot(bd_jaccard, main = "Jaccard dispersion")
+# 
+# 
+# 
+# # EXTRACT AND EXPORT PERMANOVA AND BETA-DISPERSION RESULTS ----------------
+# 
+# add_term_column <- function(x) {
+#   x <- as.data.frame(x)
+#   x$Fixed_effect <- rownames(x)
+#   rownames(x) <- NULL
+#   x <- x[, c(
+#     "Fixed_effect",
+#     setdiff(names(x), "Fixed_effect")
+#   )]
+# 
+#   return(x)
+# }
+# 
+# ## Overall PERMANOVA results
+# bray_adonis_df <- add_term_column(adonis_bray_all)
+# wunif_adonis_df <- add_term_column(adonis_wunif_all)
+# unif_adonis_df <- add_term_column(adonis_unif_all)
+# jaccard_adonis_df <- add_term_column(adonis_jaccard_all)
+# 
+# ## extract pairwise PERMANOVA results
+# extract_pairwise <- function(x) {
+# 
+#   results <- list()
+# 
+#   for (i in names(x)) {
+# 
+#     if (i != "parent_call") {
+# 
+#       temp <- as.data.frame(
+#         x[[i]]
+#       )
+# 
+#       # Add model terms as a normal column
+#       temp$Fixed_effect <- rownames(temp)
+#       rownames(temp) <- NULL
+# 
+#       # Add the cohort comparison
+#       temp$Comparison <- i
+# 
+#       # Arrange columns in a logical order
+#       temp <- temp[, c(
+#         "Comparison",
+#         "Fixed_effect",
+#         setdiff(
+#           names(temp),
+#           c("Comparison", "Fixed_effect")
+#         )
+#       )]
+# 
+#       results[[i]] <- temp
+#     }
+#   }
+# 
+#   pairwise_df <- do.call(
+#     rbind,
+#     results
+#   )
+# 
+#   rownames(pairwise_df) <- NULL
+# 
+#   return(pairwise_df)
+# }
+# 
+# 
+# bray_pairwise_df <- extract_pairwise(pairwise_bray)
+# wunif_pairwise_df <- extract_pairwise(pairwise_wunif)
+# unif_pairwise_df <- extract_pairwise(pairwise_unif)
+# jaccard_pairwise_df <- extract_pairwise(pairwise_jaccard)
+# 
+# ## extract beta-dispersion ANOVA results
+# bray_disp_anova_df <- add_term_column(bray_disp_anova)
+# wunif_disp_anova_df <- add_term_column(wunif_disp_anova)
+# unif_disp_anova_df <- add_term_column(unif_disp_anova)
+# jaccard_disp_anova_df <- add_term_column(jaccard_disp_anova)
+# 
+# ## extract beta-dispersion permutation-test results
+# bray_disp_perm_df <- add_term_column(bray_disp_perm_test$tab)
+# wunif_disp_perm_df <- add_term_column(wunif_disp_perm_test$tab)
+# unif_disp_perm_df <- add_term_column(unif_disp_perm_test$tab)
+# jaccard_disp_perm_df <- add_term_column(jaccard_disp_perm_test$tab)
+# 
+# ## add distance-metric labels
+# bray_adonis_df$Distance <- "Bray-Curtis"
+# bray_pairwise_df$Distance <- "Bray-Curtis"
+# bray_disp_anova_df$Distance <- "Bray-Curtis"
+# bray_disp_perm_df$Distance <- "Bray-Curtis"
+# 
+# wunif_adonis_df$Distance <- "Weighted UniFrac"
+# wunif_pairwise_df$Distance <- "Weighted UniFrac"
+# wunif_disp_anova_df$Distance <- "Weighted UniFrac"
+# wunif_disp_perm_df$Distance <- "Weighted UniFrac"
+# 
+# unif_adonis_df$Distance <- "Unweighted UniFrac"
+# unif_pairwise_df$Distance <- "Unweighted UniFrac"
+# unif_disp_anova_df$Distance <- "Unweighted UniFrac"
+# unif_disp_perm_df$Distance <- "Unweighted UniFrac"
+# 
+# jaccard_adonis_df$Distance <- "Jaccard"
+# jaccard_pairwise_df$Distance <- "Jaccard"
+# jaccard_disp_anova_df$Distance <- "Jaccard"
+# jaccard_disp_perm_df$Distance <- "Jaccard"
+# 
+# ## optional helper to move Distance to the first column
+# move_distance_first <- function(x) {
+# 
+#   x[, c(
+#     "Distance",
+#     setdiff(names(x), "Distance")
+#   )]
+# }
+# 
+# bray_adonis_df <- move_distance_first(bray_adonis_df)
+# bray_pairwise_df <- move_distance_first(bray_pairwise_df)
+# bray_disp_anova_df <- move_distance_first(bray_disp_anova_df)
+# bray_disp_perm_df <- move_distance_first(bray_disp_perm_df)
+# 
+# wunif_adonis_df <- move_distance_first(wunif_adonis_df)
+# wunif_pairwise_df <- move_distance_first(wunif_pairwise_df)
+# wunif_disp_anova_df <- move_distance_first(wunif_disp_anova_df)
+# wunif_disp_perm_df <- move_distance_first(wunif_disp_perm_df)
+# 
+# unif_adonis_df <- move_distance_first(unif_adonis_df)
+# unif_pairwise_df <- move_distance_first(unif_pairwise_df)
+# unif_disp_anova_df <- move_distance_first(unif_disp_anova_df)
+# unif_disp_perm_df <- move_distance_first(unif_disp_perm_df)
+# 
+# jaccard_adonis_df <- move_distance_first(jaccard_adonis_df)
+# jaccard_pairwise_df <- move_distance_first(jaccard_pairwise_df)
+# jaccard_disp_anova_df <- move_distance_first(jaccard_disp_anova_df)
+# jaccard_disp_perm_df <- move_distance_first(jaccard_disp_perm_df)
+# 
+# ## export one Excel workbook with multiple worksheets
+# openxlsx::write.xlsx(
+# 
+#   x = list(
+# 
+#     # Bray–Curtis
+#     Bray_PERMANOVA = bray_adonis_df,
+#     Bray_pairwise = bray_pairwise_df,
+#     Bray_dispersion_ANOVA = bray_disp_anova_df,
+#     Bray_dispersion_perm = bray_disp_perm_df,
+# 
+#     # Weighted UniFrac
+#     WUniFrac_PERMANOVA = wunif_adonis_df,
+#     WUniFrac_pairwise = wunif_pairwise_df,
+#     WUniFrac_dispersion_ANOVA = wunif_disp_anova_df,
+#     WUniFrac_dispersion_perm = wunif_disp_perm_df,
+# 
+#     # Unweighted UniFrac
+#     UniFrac_PERMANOVA = unif_adonis_df,
+#     UniFrac_pairwise = unif_pairwise_df,
+#     UniFrac_dispersion_ANOVA = unif_disp_anova_df,
+#     UniFrac_dispersion_perm = unif_disp_perm_df,
+# 
+#     # Jaccard
+#     Jaccard_PERMANOVA = jaccard_adonis_df,
+#     Jaccard_pairwise = jaccard_pairwise_df,
+#     Jaccard_dispersion_ANOVA = jaccard_disp_anova_df,
+#     Jaccard_dispersion_perm = jaccard_disp_perm_df
+#   ),
+# 
+#   file = "Output/Beta_PERMANOVA_results_noWildAs.xlsx",
+# 
+#   overwrite = TRUE
+# )
+# 
+# file.exists("Output/Beta_PERMANOVA_results_noWildAs.xlsx")
