@@ -1,7 +1,0 @@
-taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
-Bacteria|Actinobacteriota|Coriobacteriia|Coriobacteriales|Atopobiaceae,Atopobiaceae,Family,0.625,0.9722222222222222,0.08333333333333333,0.5277777777777778,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Firmicutes|Bacilli|Staphylococcales|Gemellaceae,Gemellaceae,Family,0.375,0.9166666666666666,0.7777777777777778,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Alphaproteobacteria|Paracaedibacterales|Paracaedibacteraceae,Paracaedibacteraceae,Family,0.25,0.9166666666666666,0.027777777777777776,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Alphaproteobacteria|Rickettsiales|Unclassified_Family,Unclassified_Family,Family,0.5833333333333334,1,0.027777777777777776,0.027777777777777776,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Alphaproteobacteria|Unclassified_Order|Unclassified_Family,Unclassified_Family,Family,0.3333333333333333,0.9722222222222222,0.05555555555555555,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Unclassified_Class|Unclassified_Order|Unclassified_Family,Unclassified_Family,Family,0.3333333333333333,1,0.05555555555555555,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As

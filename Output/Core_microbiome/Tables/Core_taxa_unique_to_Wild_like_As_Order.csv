@@ -1,5 +1,0 @@
-taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
-Bacteria|Proteobacteria|Alphaproteobacteria|Paracaedibacterales,Paracaedibacterales,Order,0.25,0.9166666666666666,0.027777777777777776,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Alphaproteobacteria|Rickettsiales,Rickettsiales,Order,0.5833333333333334,1,0.027777777777777776,0.027777777777777776,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Alphaproteobacteria|Unclassified_Order,Unclassified_Order,Order,0.3333333333333333,0.9722222222222222,0.05555555555555555,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As
-Bacteria|Proteobacteria|Unclassified_Class|Unclassified_Order,Unclassified_Order,Order,0.3333333333333333,1,0.05555555555555555,0,FALSE,TRUE,FALSE,FALSE,1,FALSE,TRUE,Wild-like:As

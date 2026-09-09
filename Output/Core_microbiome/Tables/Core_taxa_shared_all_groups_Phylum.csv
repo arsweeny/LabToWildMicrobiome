@@ -1,5 +1,0 @@
-taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
-Bacteria|Actinobacteriota,Actinobacteriota,Phylum,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
-Bacteria|Bacteroidota,Bacteroidota,Phylum,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
-Bacteria|Desulfobacterota,Desulfobacterota,Phylum,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm
-Bacteria|Firmicutes,Firmicutes,Phylum,1,1,1,1,TRUE,TRUE,TRUE,TRUE,4,TRUE,FALSE,Wild:As + Wild-like:As + Lab-like:As + Lab:Mm

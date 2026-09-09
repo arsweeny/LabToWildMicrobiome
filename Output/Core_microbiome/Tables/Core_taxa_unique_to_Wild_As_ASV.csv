@@ -1,3 +1,0 @@
-taxon_id,taxon_label,taxonomic_level,prevalence_Wild:As,prevalence_Wild-like:As,prevalence_Lab-like:As,prevalence_Lab:Mm,Wild:As,Wild-like:As,Lab-like:As,Lab:Mm,n_groups_core,core_all_groups,core_unique_to_one_group,core_pattern
-ASV446,ASV446,ASV,0.9583333333333334,0,0,0,TRUE,FALSE,FALSE,FALSE,1,FALSE,TRUE,Wild:As
-ASV90,ASV90,ASV,0.9166666666666666,0.8888888888888888,0.027777777777777776,0,TRUE,FALSE,FALSE,FALSE,1,FALSE,TRUE,Wild:As
