@@ -1,0 +1,327 @@
+2026-09-10 13:06:42.87862 INFO::Writing function arguments to log file
+2026-09-10 13:06:42.929743 DEBUG::Function arguments
+2026-09-10 13:06:42.940152 DEBUG::Output folder: Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3
+2026-09-10 13:06:42.941627 DEBUG::Formula: ~SampleOrigin + Sex + log10_reads + (1 | mouse_ID_dataset)
+2026-09-10 13:06:42.943171 DEBUG::Fixed effects:
+2026-09-10 13:06:42.945025 DEBUG::Reference:
+2026-09-10 13:06:42.946278 DEBUG::Random effects:
+2026-09-10 13:06:42.947537 DEBUG::Group effects:
+2026-09-10 13:06:42.948904 DEBUG::Ordered effects:
+2026-09-10 13:06:42.950191 DEBUG::Strata effects:
+2026-09-10 13:06:42.951377 DEBUG::Min Abundance: 0.000000
+2026-09-10 13:06:42.952581 DEBUG::Min Prevalence: 0.000000
+2026-09-10 13:06:42.954073 DEBUG::Max Prevalence: 1.010000
+2026-09-10 13:06:42.955643 DEBUG::Zero Threshold: 0.000000
+2026-09-10 13:06:42.95684 DEBUG::Min variance: 0.000000
+2026-09-10 13:06:42.958272 DEBUG::Max significance: 0.050000
+2026-09-10 13:06:42.959503 DEBUG::Normalization: NONE
+2026-09-10 13:06:42.963531 DEBUG::Transform: LOG
+2026-09-10 13:06:42.964755 DEBUG::Correction method: BH
+2026-09-10 13:06:42.965919 DEBUG::Standardize: TRUE
+2026-09-10 13:06:42.966961 DEBUG::Abundance median comparison: TRUE
+2026-09-10 13:06:42.968034 DEBUG::Prevalence median comparison: FALSE
+2026-09-10 13:06:42.969391 DEBUG::Abundance median comparison threshold: 0
+2026-09-10 13:06:42.971027 DEBUG::Prevalence median comparison threshold: 0
+2026-09-10 13:06:42.972539 DEBUG::Subtract median: FALSE
+2026-09-10 13:06:42.97405 DEBUG::Warn prevalence: FALSE
+2026-09-10 13:06:42.975639 DEBUG::Small random effects: FALSE
+2026-09-10 13:06:42.977005 DEBUG::Augment: TRUE
+2026-09-10 13:06:42.978669 DEBUG::Evaluate only: abundance
+2026-09-10 13:06:42.979752 DEBUG::Cores: 1
+2026-09-10 13:06:42.98073 DEBUG::Balanced Summary plot: FALSE
+2026-09-10 13:06:42.9824 INFO::Verifying options selected are valid
+2026-09-10 13:06:42.986306 WARNING::Input is a matrix,
+                        passing through as.data.frame() .
+2026-09-10 13:06:42.991604 INFO::Determining format of input files
+2026-09-10 13:06:42.994567 INFO::Input format is data samples as rows and metadata samples as rows
+2026-09-10 13:06:42.997207 DEBUG::A total of 236 samples were found in both the data and metadata
+2026-09-10 13:06:42.998685 DEBUG::Reordering data/metadata to use same sample ordering
+2026-09-10 13:06:43.00382 INFO::Running selected normalization method: NONE
+2026-09-10 13:06:43.014976 INFO::Creating output feature tables folder
+2026-09-10 13:06:43.019041 INFO::Writing normalized data to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/features/data_norm.tsv
+2026-09-10 13:06:43.257953 INFO::Filter data based on min abundance, min prevalence, and max prevalence
+2026-09-10 13:06:45.604337 INFO::Total samples in data: 236
+2026-09-10 13:06:45.605726 INFO::Min samples required with min abundance for a feature not to be filtered: 0.000000
+2026-09-10 13:06:45.606944 INFO::Max samples allowed with min abundance for a feature not to be filtered: 238.360000
+2026-09-10 13:06:45.62895 INFO::Total filtered features: 0
+2026-09-10 13:06:45.630818 INFO::Filtered feature names from abundance, min prevalence, and max prevalence filtering:
+2026-09-10 13:06:45.640467 INFO::Total features filtered by non-zero variance filtering: 0
+2026-09-10 13:06:45.642668 INFO::Filtered feature names from variance filtering:
+2026-09-10 13:06:45.645251 INFO::Writing filtered data to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/features/filtered_data.tsv
+2026-09-10 13:06:45.817479 INFO::Running selected transform method: LOG
+2026-09-10 13:06:47.018851 INFO::Writing normalized, filtered, transformed data to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/features/data_transformed.tsv
+2026-09-10 13:06:47.152975 INFO::Factor detected for categorial metadata 'SampleOrigin'. Using as-is.
+2026-09-10 13:06:47.154512 INFO::Factor detected for categorial metadata 'Sex'. Using as-is.
+2026-09-10 13:06:47.155817 INFO::Applying z-score to standardize continuous metadata
+2026-09-10 13:06:47.167308 INFO::Running the linear model component
+2026-09-10 13:06:48.241927 DEBUG::Object: augment, Size: 56
+2026-09-10 13:06:48.242795 DEBUG::Object: cluster, Size: 0
+2026-09-10 13:06:48.243687 DEBUG::Object: cores, Size: 56
+2026-09-10 13:06:48.244377 DEBUG::Object: correction, Size: 112
+2026-09-10 13:06:48.245037 DEBUG::Object: extract_out, Size: 2424
+2026-09-10 13:06:48.245782 DEBUG::Object: feature_specific_covariate, Size: 0
+2026-09-10 13:06:48.246503 DEBUG::Object: feature_specific_covariate_name, Size: 0
+2026-09-10 13:06:48.247394 DEBUG::Object: feature_specific_covariate_record, Size: 0
+2026-09-10 13:06:48.248128 DEBUG::Object: features, Size: 487832
+2026-09-10 13:06:48.249183 DEBUG::Object: formula, Size: 2016
+2026-09-10 13:06:48.249887 DEBUG::Object: fun_list, Size: 124640
+2026-09-10 13:06:48.250568 DEBUG::Object: func_to_run, Size: 435336
+2026-09-10 13:06:48.251294 DEBUG::Object: groups, Size: 48
+2026-09-10 13:06:48.252158 DEBUG::Object: median_comparison, Size: 56
+2026-09-10 13:06:48.252794 DEBUG::Object: median_comparison_threshold, Size: 56
+2026-09-10 13:06:48.253928 DEBUG::Object: metadata, Size: 160376
+2026-09-10 13:06:48.254756 DEBUG::Object: model, Size: 112
+2026-09-10 13:06:48.255433 DEBUG::Object: model_function, Size: 71464
+2026-09-10 13:06:48.256014 DEBUG::Object: ordereds, Size: 48
+2026-09-10 13:06:48.256627 DEBUG::Object: random_effects_formula, Size: 2016
+2026-09-10 13:06:48.257259 DEBUG::Object: ranef_function, Size: 1240
+2026-09-10 13:06:48.257849 DEBUG::Object: save_models, Size: 56
+2026-09-10 13:06:48.25844 DEBUG::Object: small_random_effects, Size: 56
+2026-09-10 13:06:48.259323 DEBUG::Object: strata, Size: 48
+2026-09-10 13:06:48.260205 DEBUG::Object: subtract_median, Size: 56
+2026-09-10 13:06:48.260873 DEBUG::Object: summary_function, Size: 51456
+2026-09-10 13:06:48.261548 DEBUG::Object: func_to_run, Size: 435336
+2026-09-10 13:06:48.347276 INFO::Fitting model to feature number 1, ko00010
+2026-09-10 13:06:49.161427 INFO::Fitting model to feature number 2, ko00020
+2026-09-10 13:06:49.224076 INFO::Fitting model to feature number 3, ko00030
+2026-09-10 13:06:49.959167 INFO::Fitting model to feature number 4, ko00040
+2026-09-10 13:06:50.438582 INFO::Fitting model to feature number 5, ko00051
+2026-09-10 13:06:50.980958 INFO::Fitting model to feature number 6, ko00052
+2026-09-10 13:06:51.49158 INFO::Fitting model to feature number 7, ko00053
+2026-09-10 13:06:52.050618 INFO::Fitting model to feature number 8, ko00500
+2026-09-10 13:06:52.957382 INFO::Fitting model to feature number 9, ko00620
+2026-09-10 13:06:53.069962 INFO::Fitting model to feature number 10, ko00630
+2026-09-10 13:06:53.556592 INFO::Fitting model to feature number 11, ko00640
+2026-09-10 13:06:54.162687 INFO::Fitting model to feature number 12, ko00650
+2026-09-10 13:06:55.19088 INFO::Fitting model to feature number 13, ko00660
+2026-09-10 13:06:55.261947 INFO::Fitting model to feature number 14, ko00562
+2026-09-10 13:06:55.343347 INFO::Fitting model to feature number 15, ko00566
+2026-09-10 13:06:55.421068 INFO::Fitting model to feature number 16, ko00190
+2026-09-10 13:06:56.497816 INFO::Fitting model to feature number 17, ko00195
+2026-09-10 13:06:56.653822 INFO::Fitting model to feature number 18, ko00196
+2026-09-10 13:06:57.638108 INFO::Fitting model to feature number 19, ko00710
+2026-09-10 13:06:57.730957 INFO::Fitting model to feature number 20, ko00720
+2026-09-10 13:06:57.784006 INFO::Fitting model to feature number 21, ko00680
+2026-09-10 13:06:57.846137 INFO::Fitting model to feature number 22, ko00910
+2026-09-10 13:06:57.99468 INFO::Fitting model to feature number 23, ko00920
+2026-09-10 13:06:59.055405 INFO::Fitting model to feature number 24, ko00061
+2026-09-10 13:06:59.136156 INFO::Fitting model to feature number 25, ko00071
+2026-09-10 13:06:59.229852 INFO::Fitting model to feature number 26, ko00073
+2026-09-10 13:06:59.956803 INFO::Fitting model to feature number 27, ko00074
+2026-09-10 13:07:00.576472 INFO::Fitting model to feature number 28, ko00100
+2026-09-10 13:07:01.147438 INFO::Fitting model to feature number 29, ko00120
+2026-09-10 13:07:01.979814 INFO::Fitting model to feature number 30, ko00121
+2026-09-10 13:07:02.041407 INFO::Fitting model to feature number 31, ko00140
+2026-09-10 13:07:02.101923 INFO::Fitting model to feature number 32, ko00561
+2026-09-10 13:07:02.227944 INFO::Fitting model to feature number 33, ko00564
+2026-09-10 13:07:02.747322 INFO::Fitting model to feature number 34, ko00565
+2026-09-10 13:07:03.283996 INFO::Fitting model to feature number 35, ko00600
+2026-09-10 13:07:04.277323 INFO::Fitting model to feature number 36, ko00590
+2026-09-10 13:07:04.399762 INFO::Fitting model to feature number 37, ko00591
+2026-09-10 13:07:04.890532 INFO::Fitting model to feature number 38, ko00592
+2026-09-10 13:07:05.420391 INFO::Fitting model to feature number 39, ko01040
+2026-09-10 13:07:05.878995 INFO::Fitting model to feature number 40, ko00230
+2026-09-10 13:07:05.941655 INFO::Fitting model to feature number 41, ko00240
+2026-09-10 13:07:06.122479 INFO::Fitting model to feature number 42, ko00250
+2026-09-10 13:07:06.682797 INFO::Fitting model to feature number 43, ko00260
+2026-09-10 13:07:07.227859 INFO::Fitting model to feature number 44, ko00270
+2026-09-10 13:07:08.029132 INFO::Fitting model to feature number 45, ko00280
+2026-09-10 13:07:08.099799 INFO::Fitting model to feature number 46, ko00290
+2026-09-10 13:07:08.241576 INFO::Fitting model to feature number 47, ko00300
+2026-09-10 13:07:08.784012 INFO::Fitting model to feature number 48, ko00310
+2026-09-10 13:07:08.884956 INFO::Fitting model to feature number 49, ko00220
+2026-09-10 13:07:09.059095 INFO::Fitting model to feature number 50, ko00330
+2026-09-10 13:07:09.643704 INFO::Fitting model to feature number 51, ko00340
+2026-09-10 13:07:10.10191 INFO::Fitting model to feature number 52, ko00350
+2026-09-10 13:07:11.135072 INFO::Fitting model to feature number 53, ko00360
+2026-09-10 13:07:11.205589 INFO::Fitting model to feature number 54, ko00380
+2026-09-10 13:07:11.276827 INFO::Fitting model to feature number 55, ko00400
+2026-09-10 13:07:11.375744 INFO::Fitting model to feature number 56, ko00410
+2026-09-10 13:07:11.950532 INFO::Fitting model to feature number 57, ko00430
+2026-09-10 13:07:12.473447 INFO::Fitting model to feature number 58, ko00440
+2026-09-10 13:07:13.5214 INFO::Fitting model to feature number 59, ko00450
+2026-09-10 13:07:13.642103 INFO::Fitting model to feature number 60, ko00460
+2026-09-10 13:07:14.226875 INFO::Fitting model to feature number 61, ko00470
+2026-09-10 13:07:14.753911 INFO::Fitting model to feature number 62, ko00480
+2026-09-10 13:07:15.356245 INFO::Fitting model to feature number 63, ko00520
+2026-09-10 13:07:16.319544 INFO::Fitting model to feature number 64, ko00541
+2026-09-10 13:07:16.382248 INFO::Fitting model to feature number 65, ko00510
+2026-09-10 13:07:16.450615 INFO::Fitting model to feature number 66, ko00513
+2026-09-10 13:07:16.524813 INFO::Fitting model to feature number 67, ko00515
+2026-09-10 13:07:16.684725 INFO::Fitting model to feature number 68, ko00514
+2026-09-10 13:07:17.714434 INFO::Fitting model to feature number 69, ko00532
+2026-09-10 13:07:17.791392 INFO::Fitting model to feature number 70, ko00531
+2026-09-10 13:07:17.889599 INFO::Fitting model to feature number 71, ko00603
+2026-09-10 13:07:18.515584 INFO::Fitting model to feature number 72, ko00604
+2026-09-10 13:07:18.590457 INFO::Fitting model to feature number 73, ko00511
+2026-09-10 13:07:18.690666 INFO::Fitting model to feature number 74, ko00540
+2026-09-10 13:07:18.863515 INFO::Fitting model to feature number 75, ko00542
+2026-09-10 13:07:19.902505 INFO::Fitting model to feature number 76, ko00550
+2026-09-10 13:07:19.972301 INFO::Fitting model to feature number 77, ko00552
+2026-09-10 13:07:20.041648 INFO::Fitting model to feature number 78, ko00571
+2026-09-10 13:07:20.206806 INFO::Fitting model to feature number 79, ko00572
+2026-09-10 13:07:20.689459 INFO::Fitting model to feature number 80, ko00543
+2026-09-10 13:07:21.13881 INFO::Fitting model to feature number 81, ko00730
+2026-09-10 13:07:21.630493 INFO::Fitting model to feature number 82, ko00740
+2026-09-10 13:07:22.091517 INFO::Fitting model to feature number 83, ko00750
+2026-09-10 13:07:22.575396 INFO::Fitting model to feature number 84, ko00760
+2026-09-10 13:07:22.992671 INFO::Fitting model to feature number 85, ko00770
+2026-09-10 13:07:23.484796 INFO::Fitting model to feature number 86, ko00780
+2026-09-10 13:07:24.386981 INFO::Fitting model to feature number 87, ko00785
+2026-09-10 13:07:24.539008 INFO::Fitting model to feature number 88, ko00790
+2026-09-10 13:07:25.09258 INFO::Fitting model to feature number 89, ko00670
+2026-09-10 13:07:25.510413 INFO::Fitting model to feature number 90, ko00830
+2026-09-10 13:07:25.9589 INFO::Fitting model to feature number 91, ko00860
+2026-09-10 13:07:26.020735 INFO::Fitting model to feature number 92, ko00130
+2026-09-10 13:07:26.179879 INFO::Fitting model to feature number 93, ko00900
+2026-09-10 13:07:26.760879 INFO::Fitting model to feature number 94, ko00909
+2026-09-10 13:07:27.230011 INFO::Fitting model to feature number 95, ko00906
+2026-09-10 13:07:28.117517 INFO::Fitting model to feature number 96, ko00981
+2026-09-10 13:07:28.167488 INFO::Fitting model to feature number 97, ko00908
+2026-09-10 13:07:28.232215 INFO::Fitting model to feature number 98, ko00903
+2026-09-10 13:07:28.842388 INFO::Fitting model to feature number 99, ko00907
+2026-09-10 13:07:29.558622 INFO::Fitting model to feature number 100, ko01052
+2026-09-10 13:07:30.826081 INFO::Fitting model to feature number 101, ko00522
+2026-09-10 13:07:30.90529 INFO::Fitting model to feature number 102, ko01051
+2026-09-10 13:07:31.09956 INFO::Fitting model to feature number 103, ko01059
+2026-09-10 13:07:32.49808 INFO::Fitting model to feature number 104, ko01057
+2026-09-10 13:07:32.599934 INFO::Fitting model to feature number 105, ko00253
+2026-09-10 13:07:33.389454 INFO::Fitting model to feature number 106, ko00523
+2026-09-10 13:07:34.601807 INFO::Fitting model to feature number 107, ko01054
+2026-09-10 13:07:34.672806 INFO::Fitting model to feature number 108, ko01053
+2026-09-10 13:07:34.891373 INFO::Fitting model to feature number 109, ko01055
+2026-09-10 13:07:35.413786 INFO::Fitting model to feature number 110, ko00940
+2026-09-10 13:07:36.147815 INFO::Fitting model to feature number 111, ko00945
+2026-09-10 13:07:36.214291 INFO::Fitting model to feature number 112, ko00941
+2026-09-10 13:07:36.273075 INFO::Fitting model to feature number 113, ko00944
+2026-09-10 13:07:36.330724 INFO::Fitting model to feature number 114, ko00946
+2026-09-10 13:07:36.392822 INFO::Fitting model to feature number 115, ko00901
+2026-09-10 13:07:36.600848 INFO::Fitting model to feature number 116, ko00950
+2026-09-10 13:07:37.049681 INFO::Fitting model to feature number 117, ko00960
+2026-09-10 13:07:37.499463 INFO::Fitting model to feature number 118, ko00232
+2026-09-10 13:07:37.926041 INFO::Fitting model to feature number 119, ko00965
+2026-09-10 13:07:38.420765 INFO::Fitting model to feature number 120, ko00966
+2026-09-10 13:07:38.883728 INFO::Fitting model to feature number 121, ko00311
+2026-09-10 13:07:39.865838 INFO::Fitting model to feature number 122, ko00332
+2026-09-10 13:07:39.941432 INFO::Fitting model to feature number 123, ko00261
+2026-09-10 13:07:40.098205 INFO::Fitting model to feature number 124, ko00521
+2026-09-10 13:07:40.605436 INFO::Fitting model to feature number 125, ko00524
+2026-09-10 13:07:41.437752 INFO::Fitting model to feature number 126, ko00525
+2026-09-10 13:07:41.492205 INFO::Fitting model to feature number 127, ko00401
+2026-09-10 13:07:41.545608 INFO::Fitting model to feature number 128, ko00404
+2026-09-10 13:07:41.614618 INFO::Fitting model to feature number 129, ko00405
+2026-09-10 13:07:41.744976 INFO::Fitting model to feature number 130, ko00333
+2026-09-10 13:07:42.220174 INFO::Fitting model to feature number 131, ko00975
+2026-09-10 13:07:42.699724 INFO::Fitting model to feature number 132, ko00998
+2026-09-10 13:07:43.524309 INFO::Fitting model to feature number 133, ko00999
+2026-09-10 13:07:43.598294 INFO::Fitting model to feature number 134, ko00997
+2026-09-10 13:07:43.649438 INFO::Fitting model to feature number 135, ko00362
+2026-09-10 13:07:43.707579 INFO::Fitting model to feature number 136, ko00627
+2026-09-10 13:07:43.767552 INFO::Fitting model to feature number 137, ko00364
+2026-09-10 13:07:44.363942 INFO::Fitting model to feature number 138, ko00625
+2026-09-10 13:07:44.815343 INFO::Fitting model to feature number 139, ko00361
+2026-09-10 13:07:45.674037 INFO::Fitting model to feature number 140, ko00623
+2026-09-10 13:07:45.731792 INFO::Fitting model to feature number 141, ko00622
+2026-09-10 13:07:45.791835 INFO::Fitting model to feature number 142, ko00633
+2026-09-10 13:07:45.846523 INFO::Fitting model to feature number 143, ko00642
+2026-09-10 13:07:45.912694 INFO::Fitting model to feature number 144, ko00643
+2026-09-10 13:07:46.073182 INFO::Fitting model to feature number 145, ko00791
+2026-09-10 13:07:46.941012 INFO::Fitting model to feature number 146, ko00930
+2026-09-10 13:07:47.014853 INFO::Fitting model to feature number 147, ko00363
+2026-09-10 13:07:47.178756 INFO::Fitting model to feature number 148, ko00621
+2026-09-10 13:07:47.6468 INFO::Fitting model to feature number 149, ko00626
+2026-09-10 13:07:48.094809 INFO::Fitting model to feature number 150, ko00624
+2026-09-10 13:07:48.905896 INFO::Fitting model to feature number 151, ko00365
+2026-09-10 13:07:49.044357 INFO::Fitting model to feature number 152, ko00984
+2026-09-10 13:07:49.525268 INFO::Fitting model to feature number 153, ko00980
+2026-09-10 13:07:50.086175 INFO::Fitting model to feature number 154, ko00982
+2026-09-10 13:07:50.557471 INFO::Fitting model to feature number 155, ko00983
+2026-09-10 13:07:51.407365 INFO::Fitting model to feature number 156, ko03020
+2026-09-10 13:07:51.478326 INFO::Fitting model to feature number 157, ko03022
+2026-09-10 13:07:51.536615 INFO::Fitting model to feature number 158, ko03040
+2026-09-10 13:07:51.716594 INFO::Fitting model to feature number 159, ko03010
+2026-09-10 13:07:52.244251 INFO::Fitting model to feature number 160, ko00970
+2026-09-10 13:07:52.709577 INFO::Fitting model to feature number 161, ko03015
+2026-09-10 13:07:53.171608 INFO::Fitting model to feature number 162, ko03008
+2026-09-10 13:07:53.671578 INFO::Fitting model to feature number 163, ko03060
+2026-09-10 13:07:54.116362 INFO::Fitting model to feature number 164, ko04141
+2026-09-10 13:07:54.969544 INFO::Fitting model to feature number 165, ko04122
+2026-09-10 13:07:55.024744 INFO::Fitting model to feature number 166, ko03050
+2026-09-10 13:07:55.105911 INFO::Fitting model to feature number 167, ko03018
+2026-09-10 13:07:55.698 INFO::Fitting model to feature number 168, ko03030
+2026-09-10 13:07:56.154632 INFO::Fitting model to feature number 169, ko03410
+2026-09-10 13:07:56.976045 INFO::Fitting model to feature number 170, ko03420
+2026-09-10 13:07:57.092624 INFO::Fitting model to feature number 171, ko03430
+2026-09-10 13:07:57.906182 INFO::Fitting model to feature number 172, ko03440
+2026-09-10 13:07:57.984792 INFO::Fitting model to feature number 173, ko03450
+2026-09-10 13:07:58.041413 INFO::Fitting model to feature number 174, ko03250
+2026-09-10 13:07:58.177637 INFO::Fitting model to feature number 175, ko03272
+2026-09-10 13:07:58.666209 INFO::Fitting model to feature number 176, ko02010
+2026-09-10 13:07:59.096284 INFO::Fitting model to feature number 177, ko02060
+2026-09-10 13:07:59.570616 INFO::Fitting model to feature number 178, ko03070
+2026-09-10 13:08:00.09826 INFO::Fitting model to feature number 179, ko02020
+2026-09-10 13:08:00.615467 INFO::Fitting model to feature number 180, ko04013
+2026-09-10 13:08:01.426787 INFO::Fitting model to feature number 181, ko04016
+2026-09-10 13:08:01.476652 INFO::Fitting model to feature number 182, ko04011
+2026-09-10 13:08:01.531209 INFO::Fitting model to feature number 183, ko04310
+2026-09-10 13:08:01.5898 INFO::Fitting model to feature number 184, ko04330
+2026-09-10 13:08:01.74692 INFO::Fitting model to feature number 185, ko04066
+2026-09-10 13:08:02.604887 INFO::Fitting model to feature number 186, ko04068
+2026-09-10 13:08:02.678887 INFO::Fitting model to feature number 187, ko04020
+2026-09-10 13:08:03.199943 INFO::Fitting model to feature number 188, ko04070
+2026-09-10 13:08:03.31993 INFO::Fitting model to feature number 189, ko04072
+2026-09-10 13:08:03.75888 INFO::Fitting model to feature number 190, ko04071
+2026-09-10 13:08:04.540923 INFO::Fitting model to feature number 191, ko04024
+2026-09-10 13:08:04.599184 INFO::Fitting model to feature number 192, ko04022
+2026-09-10 13:08:05.158823 INFO::Fitting model to feature number 193, ko04151
+2026-09-10 13:08:05.593793 INFO::Fitting model to feature number 194, ko04152
+2026-09-10 13:08:06.021776 INFO::Fitting model to feature number 195, ko04075
+2026-09-10 13:08:06.50194 INFO::Fitting model to feature number 196, ko04080
+2026-09-10 13:08:07.373398 INFO::Fitting model to feature number 197, ko04145
+2026-09-10 13:08:07.425437 INFO::Fitting model to feature number 198, ko04142
+2026-09-10 13:08:07.498163 INFO::Fitting model to feature number 199, ko04146
+2026-09-10 13:08:07.645954 INFO::Fitting model to feature number 200, ko04140
+2026-09-10 13:08:08.141089 INFO::Fitting model to feature number 201, ko04138
+2026-09-10 13:08:08.562417 INFO::Fitting model to feature number 202, ko04137
+2026-09-10 13:08:09.004696 INFO::Fitting model to feature number 203, ko04148
+2026-09-10 13:08:09.743719 INFO::Fitting model to feature number 204, ko04112
+2026-09-10 13:08:09.885756 INFO::Fitting model to feature number 205, ko04113
+2026-09-10 13:08:10.363985 INFO::Fitting model to feature number 206, ko04210
+2026-09-10 13:08:10.795003 INFO::Fitting model to feature number 207, ko04214
+2026-09-10 13:08:11.255636 INFO::Fitting model to feature number 208, ko04215
+2026-09-10 13:08:11.677332 INFO::Fitting model to feature number 209, ko04216
+2026-09-10 13:08:12.090811 INFO::Fitting model to feature number 210, ko04217
+2026-09-10 13:08:12.145534 INFO::Fitting model to feature number 211, ko04115
+2026-09-10 13:08:12.200308 INFO::Fitting model to feature number 212, ko04550
+2026-09-10 13:08:12.260564 INFO::Fitting model to feature number 213, ko02024
+2026-09-10 13:08:12.405682 INFO::Fitting model to feature number 214, ko05111
+2026-09-10 13:08:13.210299 INFO::Fitting model to feature number 215, ko02025
+2026-09-10 13:08:13.261074 INFO::Fitting model to feature number 216, ko02026
+2026-09-10 13:08:13.316473 INFO::Fitting model to feature number 217, ko02030
+2026-09-10 13:08:13.446255 INFO::Fitting model to feature number 218, ko02040
+2026-09-10 13:08:13.909891 INFO::Fitting model to feature number 219, ko04814
+2026-09-10 13:08:14.397083 INFO::Fitting model to feature number 220, ko04820
+2026-09-10 13:08:15.183194 INFO::Fitting model to feature number 221, ko05110
+2026-09-10 13:08:15.31597 INFO::Fitting model to feature number 222, ko05120
+2026-09-10 13:08:15.746794 INFO::Fitting model to feature number 223, ko05130
+2026-09-10 13:08:16.202861 INFO::Fitting model to feature number 224, ko05132
+2026-09-10 13:08:16.678216 INFO::Fitting model to feature number 225, ko05131
+2026-09-10 13:08:17.172964 INFO::Fitting model to feature number 226, ko05135
+2026-09-10 13:08:17.761284 INFO::Fitting model to feature number 227, ko05133
+2026-09-10 13:08:18.173482 INFO::Fitting model to feature number 228, ko05134
+2026-09-10 13:08:18.643985 INFO::Fitting model to feature number 229, ko05150
+2026-09-10 13:08:19.204077 INFO::Fitting model to feature number 230, ko05152
+2026-09-10 13:08:20.118237 INFO::Fitting model to feature number 231, ko05100
+2026-09-10 13:08:20.166129 INFO::Fitting model to feature number 232, ko01501
+2026-09-10 13:08:20.242118 INFO::Fitting model to feature number 233, ko01502
+2026-09-10 13:08:20.325005 INFO::Fitting model to feature number 234, ko01503
+2026-09-10 13:08:20.481983 INFO::Performing tests against medians
+2026-09-10 13:08:25.114476 INFO::Counting total values for each feature
+2026-09-10 13:08:25.741375 INFO::Creating fits folder
+2026-09-10 13:08:25.743688 INFO::Writing model objects to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/fits/models_linear.rds
+2026-09-10 13:08:30.308229 INFO::Writing residuals to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/fits/residuals_linear.rds
+2026-09-10 13:08:30.355179 INFO::Writing fitted values to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/fits/fitted_linear.rds
+2026-09-10 13:08:30.37949 INFO::Writing extracted random effects to file Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/fits/ranef_linear.rds
+2026-09-10 13:08:31.931877 INFO::Writing all the results to file (ordered 
+            by increasing individual q-values): Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/all_results.tsv
+2026-09-10 13:08:32.848893 INFO::Writing the significant results without errors (those which have joint q-values less than or equal to the threshold of 0.050000 ) to file (ordered by increasing individual q-values): Results/05_PICRUSt2_Functional_Prediction/Model_Output/KEGG_MaAsLin3/significant_results.tsv

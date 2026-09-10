@@ -1,0 +1,7 @@
+test,n_tested,n_significant,percent_significant,n_higher_first,n_higher_second
+Wild-like vs Wild,234,32,13.675213675213675,4,28
+Lab-like vs Wild,234,117,50,65,52
+Lab vs Wild,234,129,55.12820512820513,63,66
+Lab-like vs Wild-like,234,144,61.53846153846154,70,74
+Lab vs Wild-like,234,153,65.38461538461539,79,74
+Lab vs Lab-like,234,89,38.034188034188034,52,37
