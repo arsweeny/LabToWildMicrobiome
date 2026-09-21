@@ -1,323 +1,995 @@
-## ALPHA DIVERSITY
+## ============================================================================
+## 01. ALPHA DIVERSITY — BASELINE MICROBIOME
+## Repeated-rarefaction primary analysis + unrarefied sensitivity analysis
+##
+## PRIMARY ANALYSIS
+##   - Rarefy every sample repeatedly to 15,857 reads
+##   - Calculate Observed richness, Faith's PD, Shannon, and Inverse Simpson
+##     diversity after each rarefaction
+##   - Average each metric across rarefactions for each sample
+##   - Use those sample-level means in all primary models and figures
+##
+## SENSITIVITY ANALYSIS
+##   - Recalculate the same diversity metrics from the unrarefied ASV table
+##   - Fit the same mixed models
+##   - Compare pairwise estimates from repeated-rarefaction vs unrarefied data
+##
+## IMPORTANT
+##   - Samples are never treated as independent across rarefaction iterations.
+##   - The repeated rarefactions are used only to obtain stable sample-level
+##     diversity estimates and quantify stochastic rarefaction uncertainty.
+## ============================================================================
 
-rm(list=ls())
 
-library(MASS)
-library(Matrix)
-library(ade4)
-library(multtest)
-library(vegan)
+## ============================================================================
+## 0. SETUP
+## ============================================================================
+
+rm(list = ls())
+
+# Packages
 library(phyloseq)
-library(microbiome)
-library(pals)
-library(microViz)
-library(magrittr)
-library(ggregplot)
-library(ggpubr)
-library(tidyverse)
-library(ggforce)
-library(ape)
-library(picante)
-library(data.table)
-library(DT)
+library(dplyr)
+library(tidyr)
+library(tibble)
 library(ggplot2)
-library(patchwork)
-require(RColorBrewer)
-library(glmmTMB)
-library(TMB)
-library(ggregplot)
-library(emmeans)
-library(psych)
+library(ggforce)
 library(ggpubr)
+library(vegan)
+library(picante)
+library(glmmTMB)
+library(emmeans)
 library(car)
+library(DHARMa)
+library(broom.mixed)
+library(openxlsx)
+library(readr)
 
-# Load the final preprocessed baseline phyloseq object.
+
+## ============================================================================
+## 1. ANALYSIS SETTINGS
+## ============================================================================
+
+# Number of independent rarefactions.
+N_RAREFACTIONS <- 100
+
+# Reproducibility seed.
+RAREFACTION_SEED <- 123
+
+# Fixed rarefaction depth used in the manuscript analysis (minimum sequencing depth).
+RAREFACTION_DEPTH <- 15857
+
+# Plotting order.
+sample_origin_plot_levels <- c(
+  "Wild:As",
+  "Wild-like:As",
+  "Lab-like:As",
+  "Lab:Mm"
+)
+
+# Model reference group: Lab:Mm.
+sample_origin_model_levels <- c(
+  "Lab:Mm",
+  "Lab-like:As",
+  "Wild-like:As",
+  "Wild:As"
+)
+
+# Existing group colours.
+sample_origin_colours <- c(
+  "Wild:As"      = "#74C476",
+  "Wild-like:As" = "#6BAED6",
+  "Lab-like:As"  = "#BC80BD",
+  "Lab:Mm"       = "#FB8072"
+)
+
+
+## ============================================================================
+## 2. INPUT / OUTPUT
+## ============================================================================
+
 # Run Scripts/00_DataPrep_Baseline.R first whenever preprocessing changes.
 ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
 
-# Results from this script are kept together in one self-contained folder.
 results_dir <- "Results/01_Alpha_Diversity"
 tables_dir <- file.path(results_dir, "Tables")
 figures_dir <- file.path(results_dir, "Figures")
-dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
-# runs data prep & sets up all the data subsets 
 
-
-
-# RAREFACTION - account for different sequencing depths/plates ------------
-
-## Rarefy - subsampling reads from each sample without replacement to a constant depth)
-ps_rare <- phyloseq::rarefy_even_depth(ps_all, rngseed = 123, replace = FALSE)
-## 315 OTUs were removed because they are no longer present in any sample
-
-head(phyloseq::sample_sums(ps_rare)) 
-## sequence depth set to 15,857 
-
-# create alpha diversity metrics ------------------------------------------
-
-adiv_R <- data.frame("Observed" = phyloseq::estimate_richness(ps_rare, measures = "Observed"),
-                      "Shannon" = phyloseq::estimate_richness(ps_rare, measures = "Shannon"),
-                      "InvSimpson" = phyloseq::estimate_richness(ps_rare, measures = "InvSimpson"),
-                      "PD" = picante::pd(samp = data.frame((data.frame(phyloseq::otu_table(ps_rare)))), 
-                                         tree = phyloseq::phy_tree(ps_rare))[, 1],
-                      "SampleOrigin" = phyloseq::sample_data(ps_rare)$SampleOrigin)
-
-## add to dataframe containing all metadata taken from the pyloseq object 
-ps_meta_rare <- meta(ps_rare)
-ps_meta_rare$Observed <-adiv_R$Observed
-ps_meta_rare$FaithPD <- adiv_R$PD
-ps_meta_rare$Shannon <- adiv_R$Shannon
-ps_meta_rare$InverseSimpson <- adiv_R$InvSimpson 
-colnames(ps_meta_rare)
-
-
-# calculate means for each alpha metric by environment --------------------
-
-## observed richness
-alpha_obs_R <- ps_meta_rare %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(Observed), se=plotrix::std.error(Observed), min=min(Observed), max=max(Observed), var=var(Observed), sd=sd(Observed))
-
-## pylogenetic diversity
-alpha_pd_R <- ps_meta_rare %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(FaithPD), se=plotrix::std.error(FaithPD), min=min(FaithPD), max=max(FaithPD), var=var(FaithPD), sd=sd(FaithPD)) 
-
-## shannon
-alpha_shan_R <- ps_meta_rare %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(Shannon), se=plotrix::std.error(Shannon), min=min(Shannon), max=max(Shannon), var=var(Shannon), sd=sd(Shannon)) 
-
-## inverse simpson
-alpha_sim_R <- ps_meta_rare %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(InverseSimpson), se=plotrix::std.error(InverseSimpson), min=min(InverseSimpson), max=max(InverseSimpson), var=var(InverseSimpson), sd=sd(InverseSimpson)) 
-
-
-# assess correlations between alpha diversity metrics ---------------------
-
-alpha_df <- adiv_R %>%
-  dplyr::select(Observed, Shannon, InvSimpson, PD)
-
-corr <- psych::corr.test(alpha_df, use = "pairwise")
-corr$p
-
-library(corrplot)
-cor_mat <- cor(alpha_df, use = "complete.obs", method = "pearson")
-
-corrplot(cor_mat,
-         method = "color",
-         type = "upper",
-         addCoef.col = "black",   # show correlation coefficients
-         tl.col = "black",
-         tl.srt = 45,
-         diag = FALSE)
-
-# alpha diversity graphs --------------------------------------------------
-
-## observed richness plot 
-obs_all_R <- ps_meta_rare %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  ggplot() +
-  ggforce::geom_sina(aes(x=SampleOrigin, y=Observed, colour=SampleOrigin), 
-                     alpha=1.0, size=2, show.legend = F) + 
-  geom_point(data=alpha_obs_R, aes(x=SampleOrigin, y=mean), color="black", size=3) + 
-  geom_errorbar(data=alpha_obs_R, aes(x=SampleOrigin, ymin=mean-se, ymax=mean+se), width=0.3, size=0.5) + 
-  theme_bw(base_size = 20) + 
-  labs(y= "Observed Richness", x="") +
-  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) +
-  scale_x_discrete(guide = guide_axis(angle = 45))
-
-## phylogenetic Diversity plot
-pd_all_R <- ps_meta_rare %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  ggplot() +
-  ggforce::geom_sina(aes(x=SampleOrigin, y=FaithPD, colour=SampleOrigin), 
-                     alpha=1.0, size=2, show.legend = F) + 
-  geom_point(data=alpha_pd_R, aes(x=SampleOrigin, y=mean), color="black", size=3) + 
-  geom_errorbar(data=alpha_pd_R, aes(x=SampleOrigin, ymin=mean-se, ymax=mean+se), width=0.3, size=0.5) + 
-  theme_bw(base_size = 20) + 
-  labs(y= "Phylogenetic Diversity", x="") +
-  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) +
-  scale_x_discrete(guide = guide_axis(angle = 45))
-
-#Shannon Plot
-shan_all_R <- ps_meta_rare %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  ggplot() +
-  ggforce::geom_sina(aes(x=SampleOrigin, y=Shannon, colour=SampleOrigin), 
-                     alpha=1.0, size=2, show.legend = F) + 
-  geom_point(data=alpha_shan_R, aes(x=SampleOrigin, y=mean), color="black", size=3) + 
-  geom_errorbar(data=alpha_shan_R, aes(x=SampleOrigin, ymin=mean-se, ymax=mean+se), width=0.3, size=0.5) + 
-  theme_bw(base_size = 20) + 
-  labs(y= "Shannon Diversity", x="") +
-  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) +
-  scale_x_discrete(guide = guide_axis(angle = 45))
-
-#Inverse Simpson Plot
-sim_all_R <- ps_meta_rare %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  ggplot() +
-  ggforce::geom_sina(aes(x=SampleOrigin, y=InverseSimpson, colour=SampleOrigin), 
-                     alpha=1.0, size=2, show.legend = F) + 
-  geom_point(data=alpha_sim_R, aes(x=SampleOrigin, y=mean), color="black", size=3) + 
-  geom_errorbar(data=alpha_sim_R, aes(x=SampleOrigin, ymin=mean-se, ymax=mean+se), width=0.3, size=0.5) + 
-  theme_bw(base_size = 20) + 
-  labs(y= "Inverse Simpson", x="") +
-  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) +
-  scale_x_discrete(guide = guide_axis(angle = 45))
-
-# panel plot of all alpha
-alpha_pan <- obs_all_R|pd_all_R|shan_all_R|sim_all_R 
-
-# panel plot of just shannon and faiths PD
-alpha_pan <- ggarrange(shan_all_R, pd_all_R, labels = c("A","B"), nrow = 1)
-
-## save final plot
-pdf(file.path(figures_dir, "alpha_diversity_by_sample_origin.pdf"), width = 6, height = 5)
-print(alpha_pan)
-dev.off()
-
-# statistical analyses ----------------------------------------------------
-
-## re-order factors to set Lab-Mm as intercept and reorder seq plate so that plate 8 is intercept 
-ps_meta_rare$SampleOrigin <- factor(ps_meta_rare$SampleOrigin, levels = c("Lab:Mm", "Lab-like:As", "Wild-like:As","Wild:As"))
-ps_meta_rare$SeqPlate <- factor(ps_meta_rare$SeqPlate, levels = c("8","7","6","5","4","3","2","1"))
-ps_meta_rare$Sex <- as.factor(ps_meta_rare$Sex)
-
-## make a column combining Id & SampleDetailed so random effect doesn't treat 
-## all Ax mice as the same, even if from different RSE experiments
-ps_meta_rare <- tidyr::unite(ps_meta_rare,"MouseId", Id, SampleDetailed, remove = F) 
-
-# observed richness
-
-## glmm with seqplate and mouse id as random effects
-## remember to use mouse_ID_dataset (not mouse_ID) because mice are named the 
-## same thing across the three experiment types
-obsl_glmm1 <-glmmTMB(Observed ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data=ps_meta_rare)
-summary(obsl_glmm1)
-## not logging Observed bc model diagnostics are fine without it
-
-emm <- emmeans(obsl_glmm1, ~ SampleOrigin)
-pairs(emm, adjust = "tukey")
-
-Anova(obsl_glmm1, type = 3)
-
-library(DHARMa)
-res <- simulateResiduals(obsl_glmm1)
-plot(res)
-
-testDispersion(res)
-testUniformity(res)
-testOutliers(res)
-
-
-# phylogenetic diversity 
-fpdl_glmm1 <- glmmTMB(FaithPD ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data = ps_meta_rare)
-summary(fpdl_glmm1)
-## not logging Observed bc model diagnostics are fine without it
-
-emm <- emmeans(fpdl_glmm1, ~ SampleOrigin)
-pairs(emm, adjust = "tukey")  
-
-Anova(fpdl_glmm1, type = 3)
-
-res <- simulateResiduals(fpdl_glmm1)
-plot(res)
-
-testDispersion(res)
-testUniformity(res)
-testOutliers(res)
-
-# shannon diversity
-hist(ps_meta_rare$Shannon) # pretty skewed
-hist(log(ps_meta_rare$Shannon)) # looks even worse
-
-shan_glm1 <- glmmTMB(Shannon ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data = ps_meta_rare)
-summary(shan_glm1)
-
-emm <- emmeans(shan_glm1, ~ SampleOrigin)
-pairs(emm, adjust = "tukey")  
-
-Anova(shan_glm1, type = 3)
-
-res <- simulateResiduals(shan_glm1)
-plot(res)
-
-testDispersion(res)
-testUniformity(res)
-testOutliers(res)
-
-## look at the outlier values
-## outliers are evenly spread across biological and technical groups
-## outliers are all showing plausible values for shannon diversity
-## will not remove any outliers
-extreme <- c(
-  order(res$scaledResiduals)[1:5],
-  order(res$scaledResiduals, decreasing = TRUE)[1:5]
+dir.create(
+  tables_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
 )
 
-ps_meta_rare[extreme, c("Observed",
-                        "SampleOrigin",
-                        "Sex",
-                        "SeqPlate",
-                        "mouse_ID_dataset",
-                        "SeqDepth")]
-
-# inverse simpson
-ps_meta_rare$Log_InverseSimpson = log(ps_meta_rare$InverseSimpson)
-
-siml_glmm1 <- glmmTMB(Log_InverseSimpson ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data = ps_meta_rare)
-summary(siml_glmm1)
-## needs to be logged to achieve good model diagnostics
-
-emm <- emmeans(siml_glmm1, ~ SampleOrigin)
-pairs(emm, adjust = "tukey") 
-
-Anova(siml_glmm1, type = 3)
-
-res <- simulateResiduals(siml_glmm1)
-plot(res)
-
-testDispersion(res)
-testUniformity(res)
-testOutliers(res)
+dir.create(
+  figures_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
 
 
+## ============================================================================
+## 3. BASIC DATA CHECKS
+## ============================================================================
 
-# export alpha diversity results into excel table -------------------------
+# Confirm sample names and metadata row names are identical.
+metadata_check <- as.data.frame(phyloseq::sample_data(ps_all))
 
-library(glmmTMB)
-library(car)
-library(emmeans)
-library(broom.mixed)
-library(broom)
-library(dplyr)
-library(openxlsx)
+## ============================================================================
+## 4. HELPER FUNCTION: CALCULATE ALPHA DIVERSITY
+## ============================================================================
 
-## Store models
+# All metrics are calculated from the SAME sample x ASV count matrix.
+# This avoids sample-ID inconsistencies between separate diversity functions.
+
+calculate_alpha_metrics <- function(
+    ps_object,
+    iteration = NA_integer_) {
+
+  sample_ids <- phyloseq::sample_names(ps_object)
+
+  # --------------------------------------------------------------------------
+  # Extract ASV count matrix
+  # --------------------------------------------------------------------------
+
+  otu <- as(
+    phyloseq::otu_table(ps_object),
+    "matrix"
+  )
+
+  # vegan::diversity() and picante::pd() require:
+  # rows = samples
+  # columns = taxa
+  if (phyloseq::taxa_are_rows(ps_object)) {
+    otu <- t(otu)
+  }
+
+  # Confirm all sample IDs are retained.
+  stopifnot(
+    setequal(
+      rownames(otu),
+      sample_ids
+    )
+  )
+
+  # Force exact phyloseq sample order.
+  otu <- otu[
+    sample_ids,
+    ,
+    drop = FALSE
+  ]
+
+  stopifnot(
+    identical(
+      rownames(otu),
+      sample_ids
+    )
+  )
+
+  # --------------------------------------------------------------------------
+  # Observed richness
+  # --------------------------------------------------------------------------
+
+  observed <- rowSums(
+    otu > 0
+  )
+
+  # --------------------------------------------------------------------------
+  # Shannon diversity
+  # --------------------------------------------------------------------------
+
+  shannon <- vegan::diversity(
+    otu,
+    index = "shannon"
+  )
+
+  # --------------------------------------------------------------------------
+  # Inverse Simpson diversity
+  # --------------------------------------------------------------------------
+
+  inverse_simpson <- vegan::diversity(
+    otu,
+    index = "invsimpson"
+  )
+
+  # --------------------------------------------------------------------------
+  # Faith's phylogenetic diversity
+  # --------------------------------------------------------------------------
+
+  faith_pd_results <- picante::pd(
+    samp = otu,
+    tree = phyloseq::phy_tree(ps_object),
+    include.root = TRUE
+  )
+
+  stopifnot(
+    identical(
+      rownames(faith_pd_results),
+      sample_ids
+    )
+  )
+
+  faith_pd <- faith_pd_results$PD
+
+  # --------------------------------------------------------------------------
+  # Return one row per sample
+  # --------------------------------------------------------------------------
+
+  alpha_metrics <- tibble::tibble(
+    SampleID = sample_ids,
+    iteration = iteration,
+    Observed = as.numeric(observed),
+    FaithPD = as.numeric(faith_pd),
+    Shannon = as.numeric(shannon),
+    InverseSimpson = as.numeric(inverse_simpson)
+  )
+
+  # Fail immediately if anything went wrong.
+  stopifnot(
+    nrow(alpha_metrics) ==
+      phyloseq::nsamples(ps_object),
+
+    identical(
+      alpha_metrics$SampleID,
+      sample_ids
+    ),
+
+    !anyNA(alpha_metrics$Observed),
+    !anyNA(alpha_metrics$FaithPD),
+    !anyNA(alpha_metrics$Shannon),
+    !anyNA(alpha_metrics$InverseSimpson)
+  )
+
+  alpha_metrics
+}
+
+
+## ============================================================================
+## 5. REPEATED RAREFACTION
+## ============================================================================
+
+cat(
+  "Running ",
+  N_RAREFACTIONS,
+  " rarefactions at ",
+  RAREFACTION_DEPTH,
+  " reads/sample.\n",
+  sep = ""
+)
+
+# Use a different deterministic seed for each rarefaction.
+rarefaction_seeds <- RAREFACTION_SEED +
+  seq_len(N_RAREFACTIONS) - 1L
+
+alpha_iterations_list <- vector(
+  mode = "list",
+  length = N_RAREFACTIONS
+)
+
+for (i in seq_len(N_RAREFACTIONS)) {
+
+  message(
+    "Rarefaction iteration ",
+    i,
+    " of ",
+    N_RAREFACTIONS
+  )
+
+  ps_i <- phyloseq::rarefy_even_depth(
+    ps_all,
+    sample.size = RAREFACTION_DEPTH,
+    rngseed = rarefaction_seeds[i],
+    replace = FALSE,
+    trimOTUs = TRUE,
+    verbose = FALSE
+  )
+
+  # Rarefaction should preserve all samples and sample names.
+  stopifnot(
+    phyloseq::nsamples(ps_i) ==
+      phyloseq::nsamples(ps_all),
+
+    identical(
+      phyloseq::sample_names(ps_i),
+      phyloseq::sample_names(ps_all)
+    )
+  )
+
+  alpha_iterations_list[[i]] <-
+    calculate_alpha_metrics(
+      ps_object = ps_i,
+      iteration = i
+    )
+}
+
+alpha_iterations <- dplyr::bind_rows(
+  alpha_iterations_list
+)
+
+# Expected: 239 samples x 100 iterations = 23,900 rows.
+stopifnot(
+  nrow(alpha_iterations) ==
+    phyloseq::nsamples(ps_all) * N_RAREFACTIONS,
+
+  length(unique(alpha_iterations$SampleID)) ==
+    phyloseq::nsamples(ps_all),
+
+  setequal(
+    unique(alpha_iterations$SampleID),
+    phyloseq::sample_names(ps_all)
+  )
+)
+
+# Confirm no missing values were created.
+alpha_missingness_check <- alpha_iterations %>%
+  dplyr::summarise(
+    Observed_NA = sum(is.na(Observed)),
+    FaithPD_NA = sum(is.na(FaithPD)),
+    Shannon_NA = sum(is.na(Shannon)),
+    InverseSimpson_NA = sum(is.na(InverseSimpson))
+  )
+
+print(alpha_missingness_check)
+
+stopifnot(
+  all(alpha_missingness_check == 0)
+)
+
+
+## ============================================================================
+## 6. SUMMARISE REPEATED RAREFACTIONS PER SAMPLE
+## ============================================================================
+
+# The MEAN across rarefactions is used in all primary figures and models.
+# SD/min/max quantify stochastic uncertainty due to random subsampling.
+
+alpha_sample_summary <- alpha_iterations %>%
+  dplyr::group_by(SampleID) %>%
+  dplyr::summarise(
+
+    # IMPORTANT:
+    # Calculate SD/min/max BEFORE creating the mean column with the same name.
+    # Otherwise dplyr::summarise() can use the newly created scalar mean in
+    # subsequent expressions, causing SD to become NA/NaN.
+
+    Observed_SD = stats::sd(
+      Observed,
+      na.rm = TRUE
+    ),
+    Observed_min = min(
+      Observed,
+      na.rm = TRUE
+    ),
+    Observed_max = max(
+      Observed,
+      na.rm = TRUE
+    ),
+    Observed = mean(
+      Observed,
+      na.rm = TRUE
+    ),
+
+    FaithPD_SD = stats::sd(
+      FaithPD,
+      na.rm = TRUE
+    ),
+    FaithPD_min = min(
+      FaithPD,
+      na.rm = TRUE
+    ),
+    FaithPD_max = max(
+      FaithPD,
+      na.rm = TRUE
+    ),
+    FaithPD = mean(
+      FaithPD,
+      na.rm = TRUE
+    ),
+
+    Shannon_SD = stats::sd(
+      Shannon,
+      na.rm = TRUE
+    ),
+    Shannon_min = min(
+      Shannon,
+      na.rm = TRUE
+    ),
+    Shannon_max = max(
+      Shannon,
+      na.rm = TRUE
+    ),
+    Shannon = mean(
+      Shannon,
+      na.rm = TRUE
+    ),
+
+    InverseSimpson_SD = stats::sd(
+      InverseSimpson,
+      na.rm = TRUE
+    ),
+    InverseSimpson_min = min(
+      InverseSimpson,
+      na.rm = TRUE
+    ),
+    InverseSimpson_max = max(
+      InverseSimpson,
+      na.rm = TRUE
+    ),
+    InverseSimpson = mean(
+      InverseSimpson,
+      na.rm = TRUE
+    ),
+
+    .groups = "drop"
+  )
+
+stopifnot(
+  nrow(alpha_sample_summary) ==
+    phyloseq::nsamples(ps_all),
+
+  setequal(
+    alpha_sample_summary$SampleID,
+    phyloseq::sample_names(ps_all)
+  )
+)
+
+# Simple numerical summary of rarefaction uncertainty.
+alpha_rarefaction_variability <- alpha_sample_summary %>%
+  dplyr::summarise(
+    mean_Observed_SD =
+      mean(Observed_SD, na.rm = TRUE),
+
+    mean_FaithPD_SD =
+      mean(FaithPD_SD, na.rm = TRUE),
+
+    mean_Shannon_SD =
+      mean(Shannon_SD, na.rm = TRUE),
+
+    mean_InverseSimpson_SD =
+      mean(InverseSimpson_SD, na.rm = TRUE)
+  )
+
+print(alpha_rarefaction_variability)
+
+
+## ============================================================================
+## 7. ADD METADATA
+## ============================================================================
+
+# Extract metadata.
+# Convert sample_data explicitly to a plain base data.frame.
+# data.frame() strips the phyloseq "sample_data" class more reliably than
+# as.data.frame() for downstream dplyr verbs.
+ps_meta_rare <- data.frame(
+  phyloseq::sample_data(ps_all),
+  check.names = FALSE
+)
+
+# Use phyloseq sample_names() as the canonical sample ID.
+ps_meta_rare$SampleID <- phyloseq::sample_names(ps_all)
+
+# Put ID first.
+ps_meta_rare <- ps_meta_rare[
+  ,
+  c(
+    "SampleID",
+    setdiff(
+      names(ps_meta_rare),
+      "SampleID"
+    )
+  ),
+  drop = FALSE
+]
+
+# Confirm exact agreement before joining.
+stopifnot(
+  nrow(ps_meta_rare) ==
+    phyloseq::nsamples(ps_all),
+
+  setequal(
+    ps_meta_rare$SampleID,
+    alpha_sample_summary$SampleID
+  )
+)
+
+# Join sample-level repeated-rarefaction means to metadata.
+ps_meta_rare <- ps_meta_rare %>%
+  dplyr::left_join(
+    alpha_sample_summary,
+    by = "SampleID"
+  )
+
+# Final join checks.
+stopifnot(
+  nrow(ps_meta_rare) ==
+    phyloseq::nsamples(ps_all),
+
+  !anyNA(ps_meta_rare$Observed),
+  !anyNA(ps_meta_rare$FaithPD),
+  !anyNA(ps_meta_rare$Shannon),
+  !anyNA(ps_meta_rare$InverseSimpson)
+)
+
+cat(
+  "Metadata successfully joined to repeated-rarefaction estimates.\n"
+)
+
+
+## ============================================================================
+## 8. REPEATED-RAREFACTION OUTPUT POLICY
+## ============================================================================
+
+# alpha_iterations and alpha_sample_summary are retained in memory for the
+# analysis but are not written as reader-facing files. The manuscript only
+# exports results needed for the main text or Supplementary Material.
+
+
+## ============================================================================
+## 9. GROUP SUMMARIES FOR FIGURES
+## ============================================================================
+
+ps_meta_plot <- ps_meta_rare %>%
+  dplyr::mutate(
+    SampleOrigin = factor(
+      SampleOrigin,
+      levels = sample_origin_plot_levels
+    )
+  )
+
+summarise_alpha_metric <- function(
+    data,
+    metric) {
+
+  data %>%
+    dplyr::group_by(SampleOrigin) %>%
+    dplyr::summarise(
+      mean = mean(
+        .data[[metric]],
+        na.rm = TRUE
+      ),
+
+      se = stats::sd(
+        .data[[metric]],
+        na.rm = TRUE
+      ) /
+        sqrt(
+          sum(
+            !is.na(.data[[metric]])
+          )
+        ),
+
+      sd = stats::sd(
+        .data[[metric]],
+        na.rm = TRUE
+      ),
+
+      min = min(
+        .data[[metric]],
+        na.rm = TRUE
+      ),
+
+      max = max(
+        .data[[metric]],
+        na.rm = TRUE
+      ),
+
+      n = sum(
+        !is.na(.data[[metric]])
+      ),
+
+      .groups = "drop"
+    )
+}
+
+alpha_obs_R <- summarise_alpha_metric(
+  ps_meta_plot,
+  "Observed"
+)
+
+alpha_pd_R <- summarise_alpha_metric(
+  ps_meta_plot,
+  "FaithPD"
+)
+
+alpha_shan_R <- summarise_alpha_metric(
+  ps_meta_plot,
+  "Shannon"
+)
+
+alpha_sim_R <- summarise_alpha_metric(
+  ps_meta_plot,
+  "InverseSimpson"
+)
+
+alpha_group_summary <- dplyr::bind_rows(
+  dplyr::mutate(
+    alpha_obs_R,
+    Metric = "Observed richness"
+  ),
+  dplyr::mutate(
+    alpha_pd_R,
+    Metric = "Faith's PD"
+  ),
+  dplyr::mutate(
+    alpha_shan_R,
+    Metric = "Shannon"
+  ),
+  dplyr::mutate(
+    alpha_sim_R,
+    Metric = "Inverse Simpson"
+  )
+) %>%
+  dplyr::select(
+    Metric,
+    dplyr::everything()
+  )
+
+
+
+## ============================================================================
+## 10. PRIMARY ALPHA-DIVERSITY FIGURES
+## ============================================================================
+
+make_alpha_plot <- function(
+    data,
+    summary_data,
+    metric,
+    y_label) {
+
+  ggplot2::ggplot(
+    data,
+    ggplot2::aes(
+      x = SampleOrigin,
+      y = .data[[metric]],
+      colour = SampleOrigin
+    )
+  ) +
+
+    ggforce::geom_sina(
+      alpha = 1,
+      size = 2,
+      show.legend = FALSE
+    ) +
+
+    ggplot2::geom_point(
+      data = summary_data,
+      ggplot2::aes(
+        x = SampleOrigin,
+        y = mean
+      ),
+      inherit.aes = FALSE,
+      colour = "black",
+      size = 3
+    ) +
+
+    ggplot2::geom_errorbar(
+      data = summary_data,
+      ggplot2::aes(
+        x = SampleOrigin,
+        ymin = mean - se,
+        ymax = mean + se
+      ),
+      inherit.aes = FALSE,
+      width = 0.3,
+      linewidth = 0.5
+    ) +
+
+    ggplot2::scale_colour_manual(
+      values = sample_origin_colours
+    ) +
+
+    ggplot2::scale_x_discrete(
+      guide = ggplot2::guide_axis(
+        angle = 45
+      )
+    ) +
+
+    ggplot2::labs(
+      x = "",
+      y = y_label
+    ) +
+
+    ggplot2::theme_bw(
+      base_size = 20
+    )
+}
+
+obs_all_R <- make_alpha_plot(
+  ps_meta_plot,
+  alpha_obs_R,
+  "Observed",
+  "Observed richness"
+)
+
+pd_all_R <- make_alpha_plot(
+  ps_meta_plot,
+  alpha_pd_R,
+  "FaithPD",
+  "Faith's phylogenetic diversity"
+)
+
+shan_all_R <- make_alpha_plot(
+  ps_meta_plot,
+  alpha_shan_R,
+  "Shannon",
+  "Shannon diversity"
+)
+
+sim_all_R <- make_alpha_plot(
+  ps_meta_plot,
+  alpha_sim_R,
+  "InverseSimpson",
+  "Inverse Simpson diversity"
+)
+
+# --------------------------------------------------------------------------
+# Main-text figure: Shannon diversity + Faith's PD
+# --------------------------------------------------------------------------
+
+alpha_pan <- ggpubr::ggarrange(
+  shan_all_R,
+  pd_all_R,
+  labels = c("A", "B"),
+  nrow = 1
+)
+
+ggplot2::ggsave(
+  filename = file.path(
+    figures_dir,
+    "Figure_Main_alpha_diversity.pdf"
+  ),
+  plot = alpha_pan,
+  width = 6,
+  height = 6
+)
+
+# --------------------------------------------------------------------------
+# Supplementary figure: complementary alpha-diversity metrics only
+# --------------------------------------------------------------------------
+
+alpha_supp_metrics <- ggpubr::ggarrange(
+  obs_all_R,
+  sim_all_R,
+  labels = c("A", "B"),
+  nrow = 1
+)
+
+ggplot2::ggsave(
+  filename = file.path(
+    figures_dir,
+    "Figure_S_alpha_diversity_complementary_metrics.pdf"
+  ),
+  plot = alpha_supp_metrics,
+  width = 6,
+  height = 6
+)
+
+
+## ============================================================================
+## 11. RAREFACTION STABILITY QC
+## ============================================================================
+
+# Rarefaction variability is retained in memory as quality-control information.
+# No separate uncertainty figure/table is exported because it is not necessary
+# for interpretation of the manuscript results.
+
+print(alpha_rarefaction_variability)
+
+
+## ============================================================================
+## 12. PREPARE PRIMARY MODEL DATA
+## ============================================================================
+
+# SeqPlate is intentionally omitted from the alpha-diversity models because
+# sequencing plate is confounded with SampleOrigin in this dataset and
+# therefore cannot be estimated cleanly as an independent technical effect.
+
+ps_meta_model <- ps_meta_rare
+
+ps_meta_model$SampleOrigin <- factor(
+  ps_meta_model$SampleOrigin,
+  levels = sample_origin_model_levels
+)
+
+ps_meta_model$Sex <- as.factor(
+  ps_meta_model$Sex
+)
+
+# Inverse Simpson requires log transformation based on the previous
+# diagnostic workflow.
+ps_meta_model$Log_InverseSimpson <- log(
+  ps_meta_model$InverseSimpson
+)
+
+
+## ============================================================================
+## 13. PRIMARY MIXED MODELS
+## ============================================================================
+
+# --------------------------------------------------------------------------
+# Observed richness
+# --------------------------------------------------------------------------
+
+model_observed <- glmmTMB::glmmTMB(
+  Observed ~
+    SampleOrigin +
+    Sex +
+    (1 | mouse_ID_dataset),
+  data = ps_meta_model
+)
+
+summary(model_observed)
+
+emmeans_observed <- emmeans::emmeans(
+  model_observed,
+  ~ SampleOrigin
+)
+
+pairs(
+  emmeans_observed,
+  adjust = "tukey"
+)
+
+car::Anova(
+  model_observed,
+  type = 3
+)
+
+res_observed <- DHARMa::simulateResiduals(
+  model_observed
+)
+
+plot(res_observed)
+DHARMa::testDispersion(res_observed)
+DHARMa::testUniformity(res_observed)
+DHARMa::testOutliers(res_observed)
+
+
+# --------------------------------------------------------------------------
+# Faith's PD
+# --------------------------------------------------------------------------
+
+model_faith <- glmmTMB::glmmTMB(
+  FaithPD ~
+    SampleOrigin +
+    Sex +
+    (1 | mouse_ID_dataset),
+  data = ps_meta_model
+)
+
+summary(model_faith)
+
+emmeans_faith <- emmeans::emmeans(
+  model_faith,
+  ~ SampleOrigin
+)
+
+pairs(
+  emmeans_faith,
+  adjust = "tukey"
+)
+
+car::Anova(
+  model_faith,
+  type = 3
+)
+
+res_faith <- DHARMa::simulateResiduals(
+  model_faith
+)
+
+plot(res_faith)
+DHARMa::testDispersion(res_faith)
+DHARMa::testUniformity(res_faith)
+DHARMa::testOutliers(res_faith)
+
+
+# --------------------------------------------------------------------------
+# Shannon diversity
+# --------------------------------------------------------------------------
+
+model_shannon <- glmmTMB::glmmTMB(
+  Shannon ~
+    SampleOrigin +
+    Sex +
+    (1 | mouse_ID_dataset),
+  data = ps_meta_model
+)
+
+summary(model_shannon)
+
+emmeans_shannon <- emmeans::emmeans(
+  model_shannon,
+  ~ SampleOrigin
+)
+
+pairs(
+  emmeans_shannon,
+  adjust = "tukey"
+)
+
+car::Anova(
+  model_shannon,
+  type = 3
+)
+
+res_shannon <- DHARMa::simulateResiduals(
+  model_shannon
+)
+
+plot(res_shannon)
+DHARMa::testDispersion(res_shannon)
+DHARMa::testUniformity(res_shannon)
+DHARMa::testOutliers(res_shannon)
+
+
+# --------------------------------------------------------------------------
+# Inverse Simpson diversity
+# --------------------------------------------------------------------------
+
+model_inverse <- glmmTMB::glmmTMB(
+  Log_InverseSimpson ~
+    SampleOrigin +
+    Sex +
+    (1 | mouse_ID_dataset),
+  data = ps_meta_model
+)
+
+summary(model_inverse)
+
+emmeans_inverse <- emmeans::emmeans(
+  model_inverse,
+  ~ SampleOrigin
+)
+
+pairs(
+  emmeans_inverse,
+  adjust = "tukey"
+)
+
+car::Anova(
+  model_inverse,
+  type = 3
+)
+
+res_inverse <- DHARMa::simulateResiduals(
+  model_inverse
+)
+
+plot(res_inverse)
+DHARMa::testDispersion(res_inverse)
+DHARMa::testUniformity(res_inverse)
+DHARMa::testOutliers(res_inverse)
+
+
+## ============================================================================
+## 14. EXPORT PRIMARY MODEL RESULTS
+## ============================================================================
+
 alpha_models <- list(
-  "Observed richness" = obsl_glmm1,
-  "Faith PD" = fpdl_glmm1,
-  "Shannon" = shan_glm1,
-  "log(Inverse Simpson)" = siml_glmm1
+  "Observed richness" = model_observed,
+  "Faith PD" = model_faith,
+  "Shannon" = model_shannon,
+  "log(Inverse Simpson)" = model_inverse
 )
 
+# Fixed-effect coefficients.
+alpha_GLMM_results <- lapply(
+  names(alpha_models),
+  function(metric) {
 
-## GLMM fixed effects
-alpha_GLMM_results <- lapply(names(alpha_models), function(metric){
-  
-  broom.mixed::tidy(
-    alpha_models[[metric]],
-    effects = "fixed",
-    conf.int = TRUE
-  ) %>%
-    mutate(Metric = metric)
-  
-}) %>%
-  bind_rows() %>%
-  select(
+    broom.mixed::tidy(
+      alpha_models[[metric]],
+      effects = "fixed",
+      conf.int = TRUE
+    ) %>%
+      dplyr::mutate(
+        Metric = metric
+      )
+  }
+) %>%
+  dplyr::bind_rows() %>%
+  dplyr::select(
     Metric,
     term,
     estimate,
@@ -327,359 +999,399 @@ alpha_GLMM_results <- lapply(names(alpha_models), function(metric){
     conf.low,
     conf.high
   ) %>%
-  mutate(
-    significance = case_when(
+  dplyr::mutate(
+    significance = dplyr::case_when(
       p.value < 0.001 ~ "***",
-      p.value < 0.01  ~ "**",
-      p.value < 0.05  ~ "*",
-      p.value < 0.1   ~ ".",
-      TRUE            ~ ""
+      p.value < 0.01 ~ "**",
+      p.value < 0.05 ~ "*",
+      p.value < 0.1 ~ ".",
+      TRUE ~ ""
     )
   )
 
+# Type III omnibus tests.
+tidy_type3_anova <- function(
+    model,
+    metric) {
 
-## Type III Wald chi-square tests
-tidy_type3_anova <- function(model, metric){
-  
-  x <- as.data.frame(car::Anova(model, type = 3))
-  
+  x <- as.data.frame(
+    car::Anova(
+      model,
+      type = 3
+    )
+  )
+
   x$Predictor <- rownames(x)
   rownames(x) <- NULL
-  
+
   x %>%
-    filter(Predictor != "(Intercept)") %>%
-    transmute(
+    dplyr::filter(
+      Predictor != "(Intercept)"
+    ) %>%
+    dplyr::transmute(
       Metric = metric,
-      Predictor,
-      Chisq,
-      Df,
+      Predictor = Predictor,
+      Chisq = Chisq,
+      Df = Df,
       p.value = `Pr(>Chisq)`,
-      significance = case_when(
+      significance = dplyr::case_when(
         p.value < 0.001 ~ "***",
-        p.value < 0.01  ~ "**",
-        p.value < 0.05  ~ "*",
-        p.value < 0.1   ~ ".",
-        TRUE            ~ ""
+        p.value < 0.01 ~ "**",
+        p.value < 0.05 ~ "*",
+        p.value < 0.1 ~ ".",
+        TRUE ~ ""
       )
     )
-  
 }
 
-anova_results <- lapply(names(alpha_models), function(metric){
-  
-  tidy_type3_anova(alpha_models[[metric]], metric)
-  
-}) %>%
-  bind_rows()
+anova_results <- lapply(
+  names(alpha_models),
+  function(metric) {
 
+    tidy_type3_anova(
+      alpha_models[[metric]],
+      metric
+    )
+  }
+) %>%
+  dplyr::bind_rows()
 
-## Tukey post hoc comparisons
-tukey_results <- lapply(names(alpha_models), function(metric){
-  
-  emmeans(alpha_models[[metric]], ~ SampleOrigin) %>%
-    pairs(adjust = "tukey") %>%
-    summary(infer = TRUE) %>%
+# Tukey-adjusted pairwise contrasts.
+extract_tukey <- function(
+    model,
+    metric,
+    analysis_label) {
+
+  emmeans::emmeans(
+    model,
+    ~ SampleOrigin
+  ) %>%
+    pairs(
+      adjust = "tukey"
+    ) %>%
+    summary(
+      infer = TRUE
+    ) %>%
     as.data.frame() %>%
-    mutate(Metric = metric)
-  
-}) %>%
-  bind_rows() %>%
-  select(
-    Metric,
-    contrast,
-    estimate,
-    SE,
-    df,
-    z.ratio,
-    p.value,
-    asymp.LCL,
-    asymp.UCL
-  )
+    dplyr::mutate(
+      Metric = metric,
+      Analysis = analysis_label
+    )
+}
 
+tukey_results <- lapply(
+  names(alpha_models),
+  function(metric) {
 
-## Model statistics
+    extract_tukey(
+      alpha_models[[metric]],
+      metric,
+      paste0(
+        "Mean of ",
+        N_RAREFACTIONS,
+        " rarefactions"
+      )
+    )
+  }
+) %>%
+  dplyr::bind_rows()
+
+# Model metadata.
 model_stats <- data.frame(
-  
   Metric = names(alpha_models),
-  
   Transformation = c(
     "None",
     "None",
     "None",
     "Log"
   ),
-  
-  Family = rep("Gaussian", length(alpha_models)),
-  
-  Random_effects =
-    rep("SeqPlate + mouse_ID_dataset", length(alpha_models)),
-  
-  AIC = sapply(alpha_models, AIC),
-  
-  BIC = sapply(alpha_models, BIC),
-  
-  N = sapply(alpha_models, nobs)
-  
-)
-
-
-## Random effect variance
-random_effects <- lapply(names(alpha_models), function(metric){
-  
-  broom.mixed::tidy(
-    alpha_models[[metric]],
-    effects = "ran_pars"
-  ) %>%
-    mutate(Metric = metric)
-  
-}) %>%
-  bind_rows()
-
-
-## Export workbook
-write.xlsx(
-  
-  list(
-    
-    GLMM_fixed_effects = alpha_GLMM_results,
-    
-    Type_III_ANOVA = anova_results,
-    
-    Tukey_posthoc = tukey_results,
-    
-    Model_statistics = model_stats,
-    
-    Random_effects = random_effects
-    
+  Family = rep(
+    "Gaussian",
+    length(alpha_models)
   ),
-  
-  file = file.path(tables_dir, "alpha_diversity_statistical_results.xlsx"),
-  
-  rowNames = FALSE
-  
+  Random_effects = rep(
+    "mouse_ID_dataset",
+    length(alpha_models)
+  ),
+  AIC = sapply(
+    alpha_models,
+    AIC
+  ),
+  BIC = sapply(
+    alpha_models,
+    BIC
+  ),
+  N = sapply(
+    alpha_models,
+    nobs
+  )
 )
 
-# # NON RAREFACTION analysis ------------------------------------------------
-# # see comparison in Output folder / supplemental material
-# # create alpha diversity metrics ------------------------------------------
-# 
-# adiv_R <- data.frame("Observed" = phyloseq::estimate_richness(ps_all, measures = "Observed"),
-#                      "Shannon" = phyloseq::estimate_richness(ps_all, measures = "Shannon"),
-#                      "InvSimpson" = phyloseq::estimate_richness(ps_all, measures = "InvSimpson"),
-#                      "PD" = picante::pd(samp = data.frame((data.frame(phyloseq::otu_table(ps_all)))),
-#                                         tree = phyloseq::phy_tree(ps_all))[, 1],
-#                      "SampleOrigin" = phyloseq::sample_data(ps_all)$SampleOrigin)
-# 
-# ## add to dataframe containing all metadata taken from the pyloseq object
-# ps_meta_norare <- meta(ps_all)
-# ps_meta_norare$Observed <-adiv_R$Observed
-# ps_meta_norare$FaithPD <- adiv_R$PD
-# ps_meta_norare$Shannon <- adiv_R$Shannon
-# ps_meta_norare$InverseSimpson <- adiv_R$InvSimpson
-# colnames(ps_meta_norare)
-# 
-# 
-# # assess correlations between alpha diversity metrics ---------------------
-# 
-# alpha_df <- adiv_R %>%
-#   dplyr::select(Observed, Shannon, InvSimpson, PD)
-# 
-# corr <- psych::corr.test(alpha_df, use = "pairwise")
-# corr$p
-# 
-# library(corrplot)
-# cor_mat <- cor(alpha_df, use = "complete.obs", method = "pearson")
-# 
-# corrplot(cor_mat,
-#          method = "color",
-#          type = "upper",
-#          addCoef.col = "black",   # show correlation coefficients
-#          tl.col = "black",
-#          tl.srt = 45,
-#          diag = FALSE)
-# 
-# # statistical analyses ----------------------------------------------------
-# 
-# ## re-order factors to set Lab-Mm as intercept and reorder seq plate so that plate 8 is intercept 
-# ps_meta_norare$SampleOrigin <- factor(ps_meta_norare$SampleOrigin, levels = c("Lab:Mm", "Lab-like:As", "Wild-like:As","Wild:As"))
-# ps_meta_norare$SeqPlate <- factor(ps_meta_norare$SeqPlate, levels = c("8","7","6","5","4","3","2","1"))
-# ps_meta_norare$Sex <- as.factor(ps_meta_norare$Sex)
-# 
-# ## make a column combining Id & SampleDetailed so random effect doesn't treat 
-# ## all Ax mice as the same, even if from different RSE experiments
-# ps_meta_norare <- tidyr::unite(ps_meta_norare,"MouseId", Id, SampleDetailed, remove = F) 
-# 
-# # observed richness
-# 
-# ## glmm with seqplate and mouse id as random effects
-# ## remember to use mouse_ID_dataset (not mouse_ID) because mice are named the 
-# ## same thing across the three experiment types
-# obsl_glmm1 <-glmmTMB(Observed ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data=ps_meta_norare)
-# summary(obsl_glmm1)
-# ## not logging Observed bc model diagnostics are fine without it
-# 
-# emm <- emmeans(obsl_glmm1, ~ SampleOrigin)
-# pairs(emm, adjust = "tukey")
-# 
-# library(DHARMa)
-# res <- simulateResiduals(obsl_glmm1)
-# plot(res)
-# 
-# testDispersion(res)
-# testUniformity(res)
-# testOutliers(res)
-# 
-# 
-# # phylogenetic diversity 
-# fpdl_glmm1 <- glmmTMB(FaithPD ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data = ps_meta_norare)
-# summary(fpdl_glmm1)
-# ## not logging Observed bc model diagnostics are fine without it
-# 
-# emm <- emmeans(fpdl_glmm1, ~ SampleOrigin)
-# pairs(emm, adjust = "tukey")  
-# 
-# res <- simulateResiduals(fpdl_glmm1)
-# plot(res)
-# 
-# testDispersion(res)
-# testUniformity(res)
-# testOutliers(res)
-# 
-# # shannon diversity
-# shan_glm1 <- glmmTMB(Shannon ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data = ps_meta_norare)
-# summary(shan_glm1)
-# 
-# emm <- emmeans(shan_glm1, ~ SampleOrigin)
-# pairs(emm, adjust = "tukey")  
-# 
-# res <- simulateResiduals(shan_glm1)
-# plot(res)
-# 
-# testDispersion(res)
-# testUniformity(res)
-# testOutliers(res)
-# 
-# ## look at the outlier values
-# ## outliers are evenly spread across biological and technical groups
-# ## outliers are all showing plausible values for shannon diversity
-# ## will not remove any outliers
-# extreme <- c(
-#   order(res$scaledResiduals)[1:5],
-#   order(res$scaledResiduals, decreasing = TRUE)[1:5]
-# )
-# 
-# ps_meta_norare[extreme, c("Observed",
-#                         "SampleOrigin",
-#                         "Sex",
-#                         "SeqPlate",
-#                         "mouse_ID_dataset",
-#                         "SeqDepth")]
-# 
-# # inverse simpson
-# ps_meta_norare$Log_InverseSimpson = log(ps_meta_norare$InverseSimpson)
-# 
-# siml_glmm1 <- glmmTMB(Log_InverseSimpson ~ SampleOrigin + Sex + (1|SeqPlate) + (1|mouse_ID_dataset), data = ps_meta_norare)
-# summary(siml_glmm1)
-# ## needs to be logged to achieve good model diagnostics
-# 
-# emm <- emmeans(siml_glmm1, ~ SampleOrigin)
-# pairs(emm, adjust = "tukey") 
-# 
-# res <- simulateResiduals(siml_glmm1)
-# plot(res)
-# 
-# testDispersion(res)
-# testUniformity(res)
-# testOutliers(res)
+random_effects <- lapply(
+  names(alpha_models),
+  function(metric) {
+
+    broom.mixed::tidy(
+      alpha_models[[metric]],
+      effects = "ran_pars"
+    ) %>%
+      dplyr::mutate(
+        Metric = metric
+      )
+  }
+) %>%
+  dplyr::bind_rows()
+
+
+## ============================================================================
+## 15. UNRAREFIED SENSITIVITY ANALYSIS
+## ============================================================================
+
+# Use the same model structure as the primary analysis; SeqPlate is omitted here too.
+
+# Calculate all four diversity metrics directly from the unrarefied ASV table.
+raw_metrics <- calculate_alpha_metrics(
+  ps_object = ps_all,
+  iteration = NA_integer_
+) %>%
+  dplyr::select(
+    -iteration
+  )
+
+# Metadata with canonical phyloseq sample IDs.
+ps_meta_raw <- data.frame(
+  phyloseq::sample_data(ps_all),
+  check.names = FALSE
+)
+
+ps_meta_raw$SampleID <- phyloseq::sample_names(
+  ps_all
+)
+
+ps_meta_raw <- ps_meta_raw[
+  ,
+  c(
+    "SampleID",
+    setdiff(
+      names(ps_meta_raw),
+      "SampleID"
+    )
+  ),
+  drop = FALSE
+]
+
+ps_meta_raw <- dplyr::left_join(
+  ps_meta_raw,
+  raw_metrics,
+  by = "SampleID"
+)
+
+stopifnot(
+  nrow(ps_meta_raw) ==
+    phyloseq::nsamples(ps_all),
+
+  !anyNA(ps_meta_raw$Observed),
+  !anyNA(ps_meta_raw$FaithPD),
+  !anyNA(ps_meta_raw$Shannon),
+  !anyNA(ps_meta_raw$InverseSimpson)
+)
+
+ps_meta_raw$SampleOrigin <- factor(
+  ps_meta_raw$SampleOrigin,
+  levels = sample_origin_model_levels
+)
+
+ps_meta_raw$Sex <- as.factor(
+  ps_meta_raw$Sex
+)
+
+ps_meta_raw$Log_InverseSimpson <- log(
+  ps_meta_raw$InverseSimpson
+)
+
+# Fit same four models.
+raw_models <- list(
+
+  "Observed richness" = glmmTMB::glmmTMB(
+    Observed ~
+      SampleOrigin +
+      Sex +
+      (1 | mouse_ID_dataset),
+    data = ps_meta_raw
+  ),
+
+  "Faith PD" = glmmTMB::glmmTMB(
+    FaithPD ~
+      SampleOrigin +
+      Sex +
+      (1 | mouse_ID_dataset),
+    data = ps_meta_raw
+  ),
+
+  "Shannon" = glmmTMB::glmmTMB(
+    Shannon ~
+      SampleOrigin +
+      Sex +
+      (1 | mouse_ID_dataset),
+    data = ps_meta_raw
+  ),
+
+  "log(Inverse Simpson)" = glmmTMB::glmmTMB(
+    Log_InverseSimpson ~
+      SampleOrigin +
+      Sex +
+      (1 | mouse_ID_dataset),
+    data = ps_meta_raw
+  )
+)
+
+raw_tukey_results <- lapply(
+  names(raw_models),
+  function(metric) {
+
+    extract_tukey(
+      raw_models[[metric]],
+      metric,
+      "Unrarefied"
+    )
+  }
+) %>%
+  dplyr::bind_rows()
+
+# Combine primary + sensitivity contrasts.
+sensitivity_pairwise <- dplyr::bind_rows(
+  tukey_results,
+  raw_tukey_results
+)
 
 
 
+## ============================================================================
+## 16. SUPPLEMENTARY FIGURE: PRIMARY VS UNRAREFIED SENSITIVITY
+## ============================================================================
 
-# other quick checks ------------------------------------------------------
+sensitivity_plot_data <- sensitivity_pairwise %>%
+  dplyr::mutate(
 
-# does acclimatization time matter?
-ps_d0 <- ps_all %>% 
-  ps_filter(!Timept %in% c("-14", "-7"))
+    Metric = factor(
+      Metric,
+      levels = c(
+        "Observed richness",
+        "Faith PD",
+        "Shannon",
+        "log(Inverse Simpson)"
+      )
+    ),
 
-## create alpha diversity metrics 
-adiv_R <- data.frame("Observed" = phyloseq::estimate_richness(ps_d0, measures = "Observed"),
-                     "Shannon" = phyloseq::estimate_richness(ps_d0, measures = "Shannon"),
-                     "InvSimpson" = phyloseq::estimate_richness(ps_d0, measures = "InvSimpson"),
-                     "PD" = picante::pd(samp = data.frame((data.frame(phyloseq::otu_table(ps_d0)))), 
-                                        tree = phyloseq::phy_tree(ps_d0))[, 1],
-                     "SampleOrigin" = phyloseq::sample_data(ps_d0)$SampleOrigin)
+    Analysis = factor(
+      Analysis,
+      levels = c(
+        paste0(
+          "Mean of ",
+          N_RAREFACTIONS,
+          " rarefactions"
+        ),
+        "Unrarefied"
+      )
+    )
+  )
 
-## add to dataframe containing all metadata taken from the pyloseq object 
-ps_d0_2 <- meta(ps_d0)
-ps_d0_2$Observed <-adiv_R$Observed
-ps_d0_2$FaithPD <- adiv_R$PD
-ps_d0_2$Shannon <- adiv_R$Shannon
-ps_d0_2$InverseSimpson <- adiv_R$InvSimpson 
-colnames(ps_d0_2)
+sensitivity_plot <- ggplot2::ggplot(
+  sensitivity_plot_data,
+  ggplot2::aes(
+    x = estimate,
+    y = contrast,
+    shape = Analysis
+  )
+) +
 
-## calculate means for each alpha metric by environment
+  ggplot2::geom_vline(
+    xintercept = 0,
+    linetype = 2,
+    linewidth = 0.4
+  ) +
 
-## observed richness
-alpha_obs_R <- ps_d0_2 %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(Observed), se=plotrix::std.error(Observed), min=min(Observed), max=max(Observed), var=var(Observed), sd=sd(Observed))
+  ggplot2::geom_errorbar(
+    ggplot2::aes(
+      xmin = asymp.LCL,
+      xmax = asymp.UCL
+    ),
+    position = ggplot2::position_dodge(
+      width = 0.5
+    ),
+    width = 0,
+    orientation = "y"
+  ) +
 
-## pylogenetic diversity
-alpha_pd_R <- ps_d0_2 %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(FaithPD), se=plotrix::std.error(FaithPD), min=min(FaithPD), max=max(FaithPD), var=var(FaithPD), sd=sd(FaithPD)) 
+  ggplot2::geom_point(
+    position = ggplot2::position_dodge(
+      width = 0.5
+    ),
+    size = 2.2
+  ) +
 
-## shannon
-alpha_shan_R <- ps_d0_2 %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(Shannon), se=plotrix::std.error(Shannon), min=min(Shannon), max=max(Shannon), var=var(Shannon), sd=sd(Shannon)) 
+  ggplot2::facet_wrap(
+    ~ Metric,
+    scales = "free_x",
+    ncol = 2
+  ) +
 
-## inverse simpson
-alpha_sim_R <- ps_d0_2 %>% group_by(SampleOrigin) %>% 
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  summarise(mean=mean(InverseSimpson), se=plotrix::std.error(InverseSimpson), min=min(InverseSimpson), max=max(InverseSimpson), var=var(InverseSimpson), sd=sd(InverseSimpson)) 
+  ggplot2::labs(
+    x = "Estimated pairwise difference (95% CI)",
+    y = "",
+    shape = "Analysis"
+  ) +
 
-## alpha diversity graph without non-acclimatized mice
-alpha_boxplot <- adiv_R %>%
-  mutate(SampleOrigin = factor(SampleOrigin, levels = c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>%
-  gather(key = metric, value = value, c("Observed", "PD", "Shannon","InvSimpson")) %>%
-  mutate(metric = factor(metric, levels = c("Observed", "PD", "Shannon","InvSimpson"))) %>%
-  ggplot(aes(x = SampleOrigin, y = value)) +
-  geom_boxplot(outlier.color = NA) +
-  geom_jitter(aes(color = SampleOrigin), height = 0.6, width = 0.3, show.legend = F, alpha=1.0, size=2) +
-  labs(x = "", y = "") +
-  facet_wrap(~ metric, scales = "free", nrow = 1) +
-  theme_bw(base_size = 20) +
-  scale_colour_manual(values = c("#74C476", "#6BAED6", "#BC80BD","#FB8072")) +
-  scale_x_discrete(guide = guide_axis(angle = 45))
+  ggplot2::theme_bw(
+    base_size = 11
+  ) +
 
-## plotting time before start of experiment against observed alpha diversity
-## not a huge effect
-ggplot(ps_meta_rare[ps_meta_rare$SampleOrigin!="Wild:As",], 
-       aes(x = Timept, y = Observed, fill = SampleOrigin)) + 
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  theme_bw()
+  ggplot2::theme(
+    legend.position = "bottom"
+  )
 
-
-
-# does age at sampling influence alpha diversity? -------------------------
-
-## age doesn't seem to influence alpha diversity too much 
-## across the different groups
-ggplot(ps_meta_rare[ps_meta_rare$SampleOrigin!="Wild:As",], 
-  aes(x = age_sampling, y = Observed, fill = SampleOrigin)) + 
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  theme_bw()
-
-ggplot(ps_meta_rare, aes(x = age_sampling, y = FaithPD, fill = SampleOrigin)) + 
-  geom_point() + 
-  geom_smooth(method = "lm")
-
-ps_meta_rare$BodyMassG <- as.numeric(ps_meta_rare$BodyMassG)
-ggplot(ps_meta_rare, aes(x = BodyMassG, y = Shannon, fill = SampleOrigin)) + 
-  geom_point() + 
-  geom_smooth(method = "lm")
+ggplot2::ggsave(
+  filename = file.path(
+    figures_dir,
+    "Figure_S_alpha_diversity_sensitivity.pdf"
+  ),
+  plot = sensitivity_plot,
+  width = 10,
+  height = 8
+)
 
 
+## ============================================================================
+## 17. EXPORT SUPPLEMENTARY STATISTICAL TABLE
+## ============================================================================
+
+# One reader-facing workbook contains only the information needed to support
+# the alpha-diversity results in the main text and Supplementary Material:
+#   1. descriptive group summaries for all four metrics,
+#   2. omnibus Type III tests for the repeated-rarefaction models,
+#   3. Tukey-adjusted pairwise comparisons for the repeated-rarefaction models,
+#   4. repeated-rarefaction vs unrarefied sensitivity comparisons.
+
+openxlsx::write.xlsx(
+  list(
+    Group_summary =
+      alpha_group_summary,
+
+    Omnibus_tests =
+      anova_results,
+
+    Pairwise_tests =
+      tukey_results,
+
+    Sensitivity =
+      sensitivity_pairwise
+  ),
+
+  file = file.path(
+    tables_dir,
+    "Table_S_alpha_diversity_results.xlsx"
+  ),
+
+  rowNames = FALSE,
+  overwrite = TRUE
+)
