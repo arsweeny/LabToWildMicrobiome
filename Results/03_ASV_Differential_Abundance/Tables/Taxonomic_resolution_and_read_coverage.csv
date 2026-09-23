@@ -1,3 +1,0 @@
-taxonomic_level,n_total_ASVs,n_ASVs_with_valid_assignment,proportion_all_ASVs_with_valid_assignment,proportion_retained_ASVs_with_valid_assignment,proportion_total_reads_with_valid_assignment,n_taxa_before_prevalence_filter,n_taxa_after_prevalence_filter
-Genus,2863,1249,0.43625567586447783,0.5053956834532374,0.7212043136862173,204,75
-Family,2863,2285,0.7981138665735242,0.8902877697841727,0.9753128253108236,110,44
