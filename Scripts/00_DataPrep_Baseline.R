@@ -19,6 +19,12 @@ library(ggforce)
 library(decontam)
 library(readxl)
 library(dplyr)
+library(Biostrings)
+library(DECIPHER)
+library(phangorn)
+library(ape)
+library(openxlsx)
+library(patchwork)
 
 # read in data  -----------------------------------------------------------
 ps <- readRDS("Data/Phyloseqs/phyloseqBaseline.rds")
@@ -60,31 +66,730 @@ ps %>% meta %>% colnames
 
 
 
-# dealing with negatives and contaminants ---------------------------------
+# dealing with sequencing controls and contaminants ------------------------
 
-## identify contaminating taxa as those occurring more frequently in negative 
-## controls than in true biological samples. 
-contams <- isContaminant(ps, method= "prevalence",
-                         neg = sample_data(ps)$SampleType == c("water_primers", "water_only"),
-                         threshold= 0.5)
+# ------------------------------------------------------------------------------
+# QUALITY-CONTROL OUTPUT DIRECTORIES
+# ------------------------------------------------------------------------------
 
-#saveRDS(contams, "Output/contaminants.rds")
-#contams <- readRDS("Outputs/contaminants.rds")
+qc_results_dir <- "Results/00_Quality_Control"
+qc_tables_dir <- file.path(qc_results_dir, "Tables")
+qc_figures_dir <- file.path(qc_results_dir, "Figures")
 
-contaminants <- rownames(contams[contams$contaminant == TRUE, ])
-length(contaminants) # only 6 
+dir.create(qc_tables_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(qc_figures_dir, recursive = TRUE, showWarnings = FALSE)
 
-## remove contaminant taxa
-clean_ps <- prune_taxa(!(taxa_names(ps) %in% contaminants), ps)
 
-## remove non-biological samples
-clean_ps <- prune_samples(!(sample_data(clean_ps)$SampleType %in% 
-            c("water_primers", "water_only",
-            "mock_community", "golden_colony", "golden_wild")), 
-            clean_ps)
+# ------------------------------------------------------------------------------
+# DEFINE CONTROL TYPES
+# ------------------------------------------------------------------------------
 
-clean_ps # 286 biological samples
+negative_types <- c(
+  "water_primers",
+  "water_only"
+)
 
+mock_types <- c(
+  "mock_community"
+)
+
+golden_types <- c(
+  "golden_colony",
+  "golden_wild"
+)
+
+all_control_types <- c(
+  negative_types,
+  mock_types,
+  golden_types
+)
+
+qc_meta <- data.frame(
+  phyloseq::sample_data(ps),
+  check.names = FALSE
+) |>
+  tibble::rownames_to_column("SampleID") |>
+  dplyr::mutate(
+    ControlType = dplyr::case_when(
+      SampleType %in% negative_types ~ "Negative control",
+      SampleType %in% mock_types ~ "Mock community",
+      SampleType == "golden_colony" ~ "Golden colony",
+      SampleType == "golden_wild" ~ "Golden wild",
+      TRUE ~ "Biological sample"
+    ),
+    SeqDepth = as.numeric(
+      phyloseq::sample_sums(ps)[SampleID]
+    )
+  )
+
+qc_meta$ControlType <- factor(
+  qc_meta$ControlType,
+  levels = c(
+    "Biological sample",
+    "Negative control",
+    "Mock community",
+    "Golden colony",
+    "Golden wild"
+  )
+)
+
+# Per-sample sequencing-depth table.
+control_sample_table <- qc_meta |>
+  dplyr::select(
+    SampleID,
+    SampleType,
+    ControlType,
+    SeqDepth,
+    dplyr::everything()
+  )
+
+# Compact summary for reporting.
+control_summary_table <- qc_meta |>
+  dplyr::group_by(
+    ControlType
+  ) |>
+  dplyr::summarise(
+    N_samples = dplyr::n(),
+    Median_reads = stats::median(
+      SeqDepth,
+      na.rm = TRUE
+    ),
+    Min_reads = min(
+      SeqDepth,
+      na.rm = TRUE
+    ),
+    Max_reads = max(
+      SeqDepth,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+print(control_summary_table)
+
+
+# ------------------------------------------------------------------------------
+# QC PANEL A: SEQUENCING DEPTH OF BIOLOGICAL AND CONTROL SAMPLES
+# ------------------------------------------------------------------------------
+
+plot_control_depth <- ggplot2::ggplot(
+  qc_meta,
+  ggplot2::aes(
+    x = ControlType,
+    y = SeqDepth
+  )
+) +
+  ggplot2::geom_boxplot(
+    outlier.shape = NA,
+    width = 0.6
+  ) +
+  ggplot2::geom_jitter(
+    width = 0.12,
+    height = 0,
+    alpha = 0.65,
+    size = 1.8
+  ) +
+  ggplot2::scale_y_log10() +
+  ggplot2::labs(
+    x = NULL,
+    y = "Sequencing depth (reads; log10 scale)"
+  ) +
+  ggplot2::theme_classic(
+    base_size = 12
+  ) +
+  ggplot2::theme(
+    axis.text.x = ggplot2::element_text(
+      angle = 35,
+      hjust = 1
+    )
+  )
+
+
+
+# ------------------------------------------------------------------------------
+# IDENTIFY CONTAMINANTS USING TRUE NEGATIVE CONTROLS ONLY
+# ------------------------------------------------------------------------------
+
+biological_ids <- qc_meta |>
+  dplyr::filter(
+    ControlType == "Biological sample"
+  ) |>
+  dplyr::pull(
+    SampleID
+  )
+
+negative_ids <- qc_meta |>
+  dplyr::filter(
+    ControlType == "Negative control"
+  ) |>
+  dplyr::pull(
+    SampleID
+  )
+
+decontam_ids <- c(
+  biological_ids,
+  negative_ids
+)
+
+ps_decontam <- phyloseq::prune_samples(
+  decontam_ids,
+  ps
+)
+
+negative_indicator <- phyloseq::sample_names(
+  ps_decontam
+) %in% negative_ids
+
+stopifnot(
+  length(negative_indicator) ==
+    phyloseq::nsamples(ps_decontam),
+  sum(negative_indicator) ==
+    length(negative_ids)
+)
+
+# NOTE: use %in% rather than == c(...), which would recycle the vector.
+contams <- decontam::isContaminant(
+  ps_decontam,
+  method = "prevalence",
+  neg = negative_indicator,
+  threshold = 0.5
+)
+
+contaminants <- rownames(
+  contams[
+    contams$contaminant %in% TRUE,
+    ,
+    drop = FALSE
+  ]
+)
+
+cat(
+  "\nPotential contaminant ASVs identified by decontam: ",
+  length(contaminants),
+  "\n",
+  sep = ""
+)
+
+
+# ------------------------------------------------------------------------------
+# DETAILED CONTAMINANT TABLE
+# ------------------------------------------------------------------------------
+
+otu_qc <- as(
+  phyloseq::otu_table(ps_decontam),
+  "matrix"
+)
+
+if (!phyloseq::taxa_are_rows(ps_decontam)) {
+  otu_qc <- t(otu_qc)
+}
+
+bio_cols <- colnames(otu_qc) %in%
+  biological_ids
+
+neg_cols <- colnames(otu_qc) %in%
+  negative_ids
+
+safe_row_mean_presence <- function(
+    x,
+    keep_cols) {
+
+  if (sum(keep_cols) == 0) {
+    return(
+      rep(
+        NA_real_,
+        nrow(x)
+      )
+    )
+  }
+
+  rowMeans(
+    x[
+      ,
+      keep_cols,
+      drop = FALSE
+    ] > 0
+  )
+}
+
+safe_row_sum <- function(
+    x,
+    keep_cols) {
+
+  if (sum(keep_cols) == 0) {
+    return(
+      rep(
+        NA_real_,
+        nrow(x)
+      )
+    )
+  }
+
+  rowSums(
+    x[
+      ,
+      keep_cols,
+      drop = FALSE
+    ]
+  )
+}
+
+tax_qc <- as.data.frame(
+  phyloseq::tax_table(
+    ps_decontam
+  ),
+  stringsAsFactors = FALSE
+)
+
+tax_qc$TaxonID <- rownames(
+  tax_qc
+)
+
+decontam_table <- data.frame(
+  TaxonID = rownames(contams),
+  Decontam_P = contams$p,
+  Contaminant = contams$contaminant,
+  Prevalence_negative = safe_row_mean_presence(
+    otu_qc,
+    neg_cols
+  )[rownames(contams)],
+  Prevalence_biological = safe_row_mean_presence(
+    otu_qc,
+    bio_cols
+  )[rownames(contams)],
+  Reads_negative = safe_row_sum(
+    otu_qc,
+    neg_cols
+  )[rownames(contams)],
+  Reads_biological = safe_row_sum(
+    otu_qc,
+    bio_cols
+  )[rownames(contams)],
+  stringsAsFactors = FALSE
+) |>
+  dplyr::left_join(
+    tax_qc,
+    by = "TaxonID"
+  ) |>
+  dplyr::arrange(
+    dplyr::desc(Contaminant),
+    Decontam_P
+  )
+
+contaminant_table <- decontam_table |>
+  dplyr::filter(
+    Contaminant %in% TRUE
+  )
+
+
+# ------------------------------------------------------------------------------
+# INTERNAL QC ONLY: PREVALENCE IN NEGATIVE CONTROLS VS BIOLOGICAL SAMPLES
+# ------------------------------------------------------------------------------
+
+plot_decontam_prevalence <- ggplot2::ggplot(
+  decontam_table,
+  ggplot2::aes(
+    x = Prevalence_biological,
+    y = Prevalence_negative,
+    shape = Contaminant
+  )
+) +
+  ggplot2::geom_point(
+    alpha = 0.65,
+    size = 2
+  ) +
+  ggplot2::geom_abline(
+    slope = 1,
+    intercept = 0,
+    linetype = 2,
+    linewidth = 0.5
+  ) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 1)
+  ) +
+  ggplot2::scale_y_continuous(
+    limits = c(0, 1)
+  ) +
+  ggplot2::labs(
+    x = "Prevalence in biological samples",
+    y = "Prevalence in negative controls",
+    shape = "decontam contaminant"
+  ) +
+  ggplot2::theme_classic(
+    base_size = 12
+  )
+
+
+
+# ------------------------------------------------------------------------------
+# MOCK AND GOLDEN REFERENCE SAMPLE QC
+# ------------------------------------------------------------------------------
+# These controls are evaluated descriptively rather than used by decontam.
+# Without an external file describing the expected mock composition, the script
+# assesses observed taxonomic profiles and repeatability but does not claim
+# quantitative recovery accuracy relative to the manufacturer's target mixture.
+
+positive_control_ids <- qc_meta |>
+  dplyr::filter(
+    ControlType %in% c(
+      "Mock community",
+      "Golden colony",
+      "Golden wild"
+    )
+  ) |>
+  dplyr::pull(
+    SampleID
+  )
+
+positive_control_bray <- data.frame()
+positive_control_bray_summary <- data.frame()
+
+if (length(positive_control_ids) > 0) {
+
+  ps_positive_controls <- phyloseq::prune_samples(
+    positive_control_ids,
+    ps
+  )
+
+  ps_positive_controls <- phyloseq::prune_taxa(
+    phyloseq::taxa_sums(
+      ps_positive_controls
+    ) > 0,
+    ps_positive_controls
+  )
+
+  positive_meta <- data.frame(
+    phyloseq::sample_data(
+      ps_positive_controls
+    ),
+    check.names = FALSE
+  ) |>
+    tibble::rownames_to_column(
+      "SampleID"
+    ) |>
+    dplyr::mutate(
+      ControlType = dplyr::case_when(
+        SampleType %in% mock_types ~ "Mock community",
+        SampleType == "golden_colony" ~ "Golden colony",
+        SampleType == "golden_wild" ~ "Golden wild",
+        TRUE ~ as.character(SampleType)
+      )
+    )
+
+  # --------------------------------------------------------------------------
+  # QC PANEL B: GENUS-LEVEL COMPOSITION OF MOCK / GOLDEN CONTROLS
+  # --------------------------------------------------------------------------
+
+  ps_positive_genus <- phyloseq::tax_glom(
+    ps_positive_controls,
+    taxrank = "Genus",
+    NArm = FALSE
+  )
+
+  ps_positive_genus_rel <- phyloseq::transform_sample_counts(
+    ps_positive_genus,
+    function(x) {
+      x / sum(x)
+    }
+  )
+
+  positive_genus_long <- phyloseq::psmelt(
+    ps_positive_genus_rel
+  ) |>
+    dplyr::mutate(
+      Genus = dplyr::if_else(
+        is.na(Genus) |
+          Genus == "",
+        "Unclassified",
+        as.character(Genus)
+      ),
+      ControlType = dplyr::case_when(
+        SampleType %in% mock_types ~ "Mock community",
+        SampleType == "golden_colony" ~ "Golden colony",
+        SampleType == "golden_wild" ~ "Golden wild",
+        TRUE ~ as.character(SampleType)
+      )
+    )
+
+  top_control_genera <- positive_genus_long |>
+    dplyr::group_by(
+      Genus
+    ) |>
+    dplyr::summarise(
+      MeanAbundance = mean(
+        Abundance,
+        na.rm = TRUE
+      ),
+      .groups = "drop"
+    ) |>
+    dplyr::arrange(
+      dplyr::desc(
+        MeanAbundance
+      )
+    ) |>
+    dplyr::slice_head(
+      n = 15
+    ) |>
+    dplyr::pull(
+      Genus
+    )
+
+  positive_genus_plot_data <- positive_genus_long |>
+    dplyr::mutate(
+      Genus_plot = dplyr::if_else(
+        Genus %in% top_control_genera,
+        Genus,
+        "Other"
+      )
+    ) |>
+    dplyr::group_by(
+      Sample,
+      ControlType,
+      Genus_plot
+    ) |>
+    dplyr::summarise(
+      RelativeAbundance = sum(
+        Abundance,
+        na.rm = TRUE
+      ),
+      .groups = "drop"
+    )
+
+  plot_positive_controls <- ggplot2::ggplot(
+    positive_genus_plot_data,
+    ggplot2::aes(
+      x = Sample,
+      y = RelativeAbundance,
+      fill = Genus_plot
+    )
+  ) +
+    ggplot2::geom_col(
+      width = 0.85
+    ) +
+    ggplot2::facet_grid(
+      . ~ ControlType,
+      scales = "free_x",
+      space = "free_x"
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = scales::percent_format(
+        accuracy = 1
+      ),
+      expand = c(
+        0,
+        0
+      )
+    ) +
+    ggplot2::labs(
+      x = NULL,
+      y = "Relative abundance",
+      fill = "Genus"
+    ) +
+    ggplot2::theme_classic(
+      base_size = 11
+    ) +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(
+        angle = 60,
+        hjust = 1,
+        vjust = 1
+      ),
+      legend.position = "right"
+    )
+
+
+
+  # --------------------------------------------------------------------------
+  # WITHIN-CONTROL BRAY-CURTIS DISTANCES
+  # --------------------------------------------------------------------------
+  # For control types represented by >=2 samples, calculate all within-type
+  # pairwise Bray-Curtis distances. Lower values indicate more reproducible
+  # technical/reference community profiles.
+
+  positive_control_bray_list <- list()
+
+  control_levels_present <- unique(
+    positive_meta$ControlType
+  )
+
+  for (control_name in control_levels_present) {
+
+    sample_ids_control <- positive_meta |>
+      dplyr::filter(
+        ControlType == control_name
+      ) |>
+      dplyr::pull(
+        SampleID
+      )
+
+    if (length(sample_ids_control) >= 2) {
+
+      ps_control_type <- phyloseq::prune_samples(
+        sample_ids_control,
+        ps_positive_controls
+      )
+
+      ps_control_type <- phyloseq::prune_taxa(
+        phyloseq::taxa_sums(
+          ps_control_type
+        ) > 0,
+        ps_control_type
+      )
+
+      ps_control_type_rel <- phyloseq::transform_sample_counts(
+        ps_control_type,
+        function(x) {
+          x / sum(x)
+        }
+      )
+
+      bray_dist <- phyloseq::distance(
+        ps_control_type_rel,
+        method = "bray"
+      )
+
+      bray_mat <- as.matrix(
+        bray_dist
+      )
+
+      bray_pairs <- as.data.frame(
+        as.table(
+          bray_mat
+        ),
+        stringsAsFactors = FALSE
+      ) |>
+        dplyr::rename(
+          Sample1 = Var1,
+          Sample2 = Var2,
+          BrayCurtis = Freq
+        ) |>
+        dplyr::filter(
+          Sample1 < Sample2
+        ) |>
+        dplyr::mutate(
+          ControlType = control_name,
+          .before = 1
+        )
+      
+      positive_control_bray_list[[control_name]] <- bray_pairs
+    }
+  }
+  
+  if (length(positive_control_bray_list) > 0) {
+    
+    positive_control_bray <- dplyr::bind_rows(
+      positive_control_bray_list
+    )
+    
+    positive_control_bray_summary <- positive_control_bray |>
+      dplyr::group_by(
+        ControlType
+      ) |>
+      dplyr::summarise(
+        N_pairwise_comparisons = dplyr::n(),
+        Mean_BrayCurtis = mean(
+          BrayCurtis,
+          na.rm = TRUE
+        ),
+        Median_BrayCurtis = stats::median(
+          BrayCurtis,
+          na.rm = TRUE
+        ),
+        SD_BrayCurtis = stats::sd(
+          BrayCurtis,
+          na.rm = TRUE
+        ),
+        Min_BrayCurtis = min(
+          BrayCurtis,
+          na.rm = TRUE
+        ),
+        Max_BrayCurtis = max(
+          BrayCurtis,
+          na.rm = TRUE
+        ),
+        .groups = "drop"
+      )
+  }
+}
+
+
+# ------------------------------------------------------------------------------
+# QC OUTPUTS ARE WRITTEN ONCE, AT THE END OF THE SCRIPT
+# ------------------------------------------------------------------------------
+# The important QC tables remain in memory here. A single multi-sheet workbook
+# is created after final sample filtering so it can also include low-read sample
+# exclusions and the final analysis-dataset summary. Detailed intermediate
+# tables (all decontam calls, per-sample control metadata, and every pairwise
+# control distance) are intentionally not exported.
+
+
+# ------------------------------------------------------------------------------
+# SAVE ONE COMBINED QC FIGURE
+# ------------------------------------------------------------------------------
+# Only the two reader-facing QC panels are saved:
+#   A. sequencing depth across biological/control sample types
+#   B. genus-level profiles of mock and golden reference controls
+#
+# The decontam prevalence scatter is retained as an internal plot object but is
+# not exported as a separate figure.
+
+if (exists("plot_positive_controls")) {
+
+  combined_qc_figure <- (
+    plot_control_depth
+  ) /
+    (
+      plot_positive_controls
+    ) +
+    patchwork::plot_layout(
+      heights = c(0.85, 1.25)
+    ) +
+    patchwork::plot_annotation(
+      tag_levels = "A"
+    )
+
+  ggplot2::ggsave(
+    filename = file.path(
+      qc_figures_dir,
+      "Figure_S_QC_controls.pdf"
+    ),
+    plot = combined_qc_figure,
+    width = 11,
+    height = 11
+  )
+}
+
+# ------------------------------------------------------------------------------
+# REMOVE CONTAMINANT TAXA AND ALL CONTROL SAMPLES
+# ------------------------------------------------------------------------------
+
+clean_ps <- phyloseq::prune_taxa(
+  !(
+    phyloseq::taxa_names(ps) %in%
+      contaminants
+  ),
+  ps
+)
+
+clean_ps <- phyloseq::prune_samples(
+  !(
+    phyloseq::sample_data(clean_ps)$SampleType %in%
+      all_control_types
+  ),
+  clean_ps
+)
+
+cat(
+  "\nAfter contaminant and control removal:\n",
+  "  biological samples = ",
+  phyloseq::nsamples(clean_ps),
+  "\n  ASVs = ",
+  phyloseq::ntaxa(clean_ps),
+  "\n",
+  sep = ""
+)
+
+clean_ps
 
 
 # quality control ---------------------------------------------------------
@@ -203,6 +908,47 @@ ps3 <- ps3 %>%
 meta(ps3) %>% pull(SampleDetailed) %>% unique # fixed 
 meta(ps3) %>% pull(MouseOrigin) %>% unique 
 
+# ------------------------------------------------------------------------------
+# CHECK BIOLOGICAL SAMPLES REMOVED FOR LOW SEQUENCING DEPTH
+# ------------------------------------------------------------------------------
+
+# Remove colony controls first, but do NOT apply the read-depth filter yet
+ps_before_depth_filter <- ps3 %>%
+  ps_filter(SampleDetailed != "colony control")
+
+# Get sequencing depth for each sample
+depth_check <- data.frame(
+  SampleID = phyloseq::sample_names(ps_before_depth_filter),
+  Reads = phyloseq::sample_sums(ps_before_depth_filter),
+  SampleType = phyloseq::sample_data(ps_before_depth_filter)$SampleType,
+  stringsAsFactors = FALSE
+)
+
+# Identify biological samples below 10,000 reads
+low_read_biological <- depth_check %>%
+  dplyr::filter(
+    !(SampleType %in% c(
+      "water_primers",
+      "water_only",
+      "mock_community",
+      "golden_colony",
+      "golden_wild"
+    )),
+    Reads < 10000
+  )
+
+# How many?
+nrow(low_read_biological)
+
+# Which samples?
+low_read_biological
+
+# Summary of their read depths
+summary(low_read_biological$Reads)
+
+# Mean and range
+mean(low_read_biological$Reads)
+range(low_read_biological$Reads)
 
 ## drop 4 colony control samples and prune samples with <10,000 reads 
 ## low-depth samples cause unstable alpha diversity estimates, inflated
@@ -243,65 +989,7 @@ summary(TotalAbundances_All)
 
 
 
-# create phylogenetic tree from ASV sequences -----------------------------
-
-# library(Biostrings)   # DNA sequence handling
-# library(DECIPHER)     # Multiple sequence alignment
-# library(phangorn)     # Phylogenetic tree inference
-# library(ape)          # Tree manipulation
-# 
-# # create DNA sequence object using asv_key
-# seqs <- DNAStringSet(asv_key$Sequence)
-# names(seqs) <- asv_key$ASV
-# 
-# # align ASV sequences
-# alignment <- AlignSeqs(seqs)
-# 
-# # convert alignment for phangorn
-# phang.align <- phyDat(as(alignment, "matrix"), type = "DNA")
-# 
-# # build starting tree, calculate distances between ASVs
-# dm <- dist.ml(phang.align)
-# # create a neighbor joining starting tree
-# treeNJ <- NJ(dm)
-# 
-# # maximum likelihood tree optimization
-# fit <- pml(treeNJ, phang.align)
-# 
-# # NNI is appropriate for 16S amplicon data because it improves the tree
-# # without the very long runtime of stochastic searches
-# fitGTR <- optim.pml(
-#   fit,
-#   model = "GTR", # general time reversible nucleotide substitution model
-#   optInv = TRUE, # estimate proportion of invariant sites
-#   rearrangement = "NNI" # nearest neighbor interchange topology search
-# )
-# 
-# # extract final tree
-# tree <- fitGTR$tree
-# 
-# # check matching ASVs
-# # any in tree but not phylogeny?
-# setdiff(tree$tip.label, taxa_names(ps_all))
-# # any in phyloseq but missing from tree?
-# setdiff(taxa_names(ps_all), tree$tip.label)
-# 
-# # prune tree to match phyloseq
-# tree <- keep.tip(tree, taxa_names(ps_all))
-# length(tree$tip.label)
-# ntaxa(ps_all)
-# 
-# # root the tree
-# # midpoint rooting is commonly used for microbiome studies
-# # when no appropriate outgroup is avaiable
-# tree_rooted <- midpoint(tree)
-# is.rooted(tree_rooted)
-
-# save/load the final tree and add to ps_all
-# saveRDS(tree_rooted, file = "Output/phylogenetic_tree.rds")
-tree <- readRDS("Output/phylogenetic_tree.rds")
-phy_tree(ps_all) <- tree
-
+# phylogenetic tree is constructed after all final sample filtering
 
 
 # final filtering of groups -----------------------------------------------
@@ -320,88 +1008,6 @@ ps_all <- ps_all %>%
                                    str_detect(MouseOrigin, "charles river") ~ "Lab:Mm")) %>% 
   ps_mutate(SampleOrigin=fct_relevel(SampleOrigin, c("Wild:As", "Wild-like:As", "Lab-like:As", "Lab:Mm"))) %>% 
   ps_filter(!SampleDetailed %in% c("Penicuik 2020", "Falkirk 2017", "MF1 lab mice")) 
-
-
-# 
-# # phyloseq technical subsets & basic summary info -------------------------
-# 
-# ## Analysis 1 - ALL Groups (excluding colony controls)
-# ## maybe drop MF1 later & collapse all wild samples into 1 group
-# AllIds <- meta(ps3) %>% 
-#   filter(SampleDetailed!="colony control") %>%
-#   pull(SampleId) # 282 samples
-# 
-# ## Analysis 2 - RSE experimental groups (wild-like, lab-like & CD1's)
-# RseIds <- meta(ps3) %>% 
-#   filter(SampleDetailed %in% c("nutrition expt","infection expt","antibiotic expt")) %>%
-#   pull(SampleId) # 215 samples (just RSE baseline samples)
-# 
-# ps_rse<- ps_all %>% 
-#   ps_filter(SampleId %in% RseIds) 
-# ps_rse # 213 samples (2 lost with low reads), 1769 ASVs
-# 
-# ## abundance & prevalence
-# taxa_sums(ps_rse) %>% as.data.frame() %>%
-#   arrange(desc(.)) %>%
-#   rename(TotalAbundance=1) -> TotalAbundances_RSE
-# summary(TotalAbundances_RSE)
-# 
-# prevalence(ps_rse) %>% as.data.frame() %>%
-#   arrange(desc(.)) %>%
-#   rename(Prevalence=1) %>%
-#   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_RSE
-# summary(PrevalenceASVs_RSE)
-# 
-# ## Analysis 3 - All wood mouse cohorts (wild-like, lab-like, Hewan, Penicuik & Falkirk)
-# WoodIds <- meta(ps3) %>% 
-#   filter(MouseSpecies=="Apodemus sylvaticus") %>% 
-#   filter(SampleDetailed!="colony control") %>%
-#   pull(SampleId) # 200 samples
-# 
-# ps_wood <- ps_all %>% 
-#   ps_filter(SampleId %in% WoodIds)
-# ps_wood # 196 samples (4 lost with low reads), 3012 ASVs
-# 
-# ## abundance & prevalence
-# taxa_sums(ps_wood) %>% as.data.frame() %>%
-#   arrange(desc(.)) %>%
-#   rename(TotalAbundance=1) -> TotalAbundances_Wood
-# summary(TotalAbundances_Wood)
-#  
-# prevalence(ps_wood) %>% as.data.frame() %>%
-#   arrange(desc(.)) %>%
-#   rename(Prevalence=1) %>%
-#   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_Wood
-# summary(PrevalenceASVs_Wood)
-# 
-# ## Analysis 4 - Lab groups only (no wild samples)
-# LabIds <- meta(ps3) %>%
-#   filter(MouseOrigin!= "wild") %>% # on csv file space after word wild caused some issues so watch out for
-#   filter(SampleDetailed!="colony control") %>% 
-#   pull(SampleId) # 225 samples (wild-like, lab-like, CD1, MF1, plus pos and neg controls) 
-# 
-# ps_lab <- ps_all %>% 
-#   ps_filter(SampleId %in% LabIds)
-# ps_lab # 223 samples (2 low reads dropped), 1911 ASVs
-# 
-# ## abundance & prevalence
-# taxa_sums(ps_lab) %>% as.data.frame() %>%
-#   arrange(desc(.)) %>%
-#   rename(TotalAbundance=1) -> TotalAbundances_Lab
-# summary(TotalAbundances_Lab)
-# 
-# prevalence(ps_lab) %>% as.data.frame() %>%
-#   arrange(desc(.)) %>%
-#   rename(Prevalence=1) %>%
-#   mutate(Prevalence=Prevalence*100)-> PrevalenceASVs_Lab
-# summary(PrevalenceASVs_Lab)
-
-# save all 
-# saveRDS(ps_all, "Data/Phyloseqs/phyloseqAllSamples.rds")
-# saveRDS(ps_rse, "Data/Phyloseqs/phyloseqRSESamples.rds")
-# saveRDS(ps_wood, "Data/Phyloseqs/phyloseqWoodMiceSamples.rds")
-# saveRDS(ps_lab, "Data/Phyloseqs/phyloseqLabSamples.rds")
-
 
 
 # Add age at sampling to ps_all -----------------------------------------------
@@ -544,23 +1150,353 @@ sample_data(ps_all) <- sample_data(ps_meta)
 
 
 # ------------------------------------------------------------------------------
+# BUILD, SAVE, AND ATTACH THE FINAL PHYLOGENETIC TREE
+# ------------------------------------------------------------------------------
+# The tree is constructed here, AFTER all final sample filtering, so the saved
+# tree and the saved ps_all object correspond to the same final ASV set.
+# Downstream scripts should load this saved tree rather than rebuilding it.
+
+processed_data_dir <- "Data/Processed"
+dir.create(
+  processed_data_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+# Remove any ASVs that became zero-abundance after the final sample filtering.
+ps_all <- phyloseq::prune_taxa(
+  phyloseq::taxa_sums(ps_all) > 0,
+  ps_all
+)
+
+# Match the ASV sequence key to the exact ASVs retained in final ps_all.
+asv_key_final <- asv_key %>%
+  dplyr::filter(
+    ASV %in% phyloseq::taxa_names(ps_all)
+  ) %>%
+  dplyr::arrange(
+    match(
+      ASV,
+      phyloseq::taxa_names(ps_all)
+    )
+  )
+
+stopifnot(
+  setequal(
+    asv_key_final$ASV,
+    phyloseq::taxa_names(ps_all)
+  )
+)
+
+# Convert ASV sequences to a DNAStringSet and preserve the ASV names as tips.
+seqs <- Biostrings::DNAStringSet(
+  asv_key_final$Sequence
+)
+
+names(seqs) <- asv_key_final$ASV
+
+# Multiple-sequence alignment.
+alignment <- DECIPHER::AlignSeqs(
+  seqs
+)
+
+# Convert the alignment to phangorn format.
+phang_align <- phangorn::phyDat(
+  as(
+    alignment,
+    "matrix"
+  ),
+  type = "DNA"
+)
+
+# Build a neighbour-joining starting tree from maximum-likelihood distances.
+# ape exports this function as lowercase nj().
+dm <- phangorn::dist.ml(
+  phang_align
+)
+
+tree_nj <- ape::nj(
+  dm
+)
+
+# Fit and optimize a maximum-likelihood tree using a GTR model and NNI search.
+fit <- phangorn::pml(
+  tree_nj,
+  phang_align
+)
+
+fit_gtr <- phangorn::optim.pml(
+  fit,
+  model = "GTR",
+  optInv = TRUE,
+  rearrangement = "NNI"
+)
+
+# Extract and midpoint-root the optimized tree.
+tree_rooted <- phangorn::midpoint(
+  fit_gtr$tree
+)
+
+# Ensure the final tree contains exactly the ASVs in ps_all.
+tree_rooted <- ape::keep.tip(
+  tree_rooted,
+  phyloseq::taxa_names(ps_all)
+)
+
+stopifnot(
+  setequal(
+    tree_rooted$tip.label,
+    phyloseq::taxa_names(ps_all)
+  ),
+  ape::is.rooted(tree_rooted)
+)
+
+# Attach the tree to the final phyloseq object BEFORE ps_all is saved.
+phyloseq::phy_tree(ps_all) <- tree_rooted
+
+stopifnot(
+  !is.null(
+    phyloseq::phy_tree(
+      ps_all,
+      errorIfNULL = FALSE
+    )
+  ),
+  setequal(
+    phyloseq::phy_tree(ps_all)$tip.label,
+    phyloseq::taxa_names(ps_all)
+  )
+)
+
+# Save the tree separately so it can be versioned in the GitHub project and
+# loaded directly by downstream analyses. Newick is also written as a portable,
+# human-readable representation of the same tree.
+tree_rds_file <- file.path(
+  processed_data_dir,
+  "baseline_phylogenetic_tree.rds"
+)
+
+tree_newick_file <- file.path(
+  processed_data_dir,
+  "baseline_phylogenetic_tree.nwk"
+)
+
+saveRDS(
+  tree_rooted,
+  file = tree_rds_file
+)
+
+ape::write.tree(
+  tree_rooted,
+  file = tree_newick_file
+)
+
+cat(
+  "\nSaved final phylogenetic tree to: ",
+  tree_rds_file,
+  "\n",
+  sep = ""
+)
+
+
+# ------------------------------------------------------------------------------
+# FINAL DATASET SUMMARY FOR MANUSCRIPT
+# ------------------------------------------------------------------------------
+
+## sequencing depth per retained sample
+final_depths <- phyloseq::sample_sums(ps_all)
+
+## total reads
+total_reads <- sum(final_depths)
+
+## mean reads per sample
+mean_reads <- mean(final_depths)
+
+## range
+min_reads <- min(final_depths)
+max_reads <- max(final_depths)
+
+## total number of samples
+n_samples <- phyloseq::nsamples(ps_all)
+
+## sample numbers by cohort
+group_counts <- table(
+  phyloseq::sample_data(ps_all)$SampleOrigin
+)
+
+## print everything
+cat(
+  "\nFINAL DATASET SUMMARY\n",
+  "Total reads: ", format(total_reads, big.mark = ","), "\n",
+  "Mean reads/sample: ", format(round(mean_reads), big.mark = ","), "\n",
+  "Range: ", format(min_reads, big.mark = ","),
+  " - ", format(max_reads, big.mark = ","), "\n",
+  "Number of samples: ", n_samples, "\n\n",
+  sep = ""
+)
+
+print(group_counts)
+
+
+# ------------------------------------------------------------------------------
+# SAVE ONE STREAMLINED MULTI-SHEET RESULTS WORKBOOK
+# ------------------------------------------------------------------------------
+
+# 1. Control sequencing-depth summary.
+control_summary_export <- control_summary_table |>
+  dplyr::mutate(
+    ControlType = as.character(ControlType)
+  ) |>
+  dplyr::rename(
+    Control_type = ControlType,
+    N = N_samples,
+    Median_reads = Median_reads,
+    Min_reads = Min_reads,
+    Max_reads = Max_reads
+  )
+
+# 2. Only ASVs actually classified as potential contaminants.
+#    Retain the sequence/ID, read totals, decontam score, prevalence, and taxonomy.
+contaminants_export <- contaminant_table |>
+  dplyr::select(
+    TaxonID,
+    Reads_negative,
+    Reads_biological,
+    Decontam_P,
+    Prevalence_negative,
+    Prevalence_biological,
+    dplyr::any_of(
+      c(
+        "Kingdom",
+        "Phylum",
+        "Class",
+        "Order",
+        "Family",
+        "Genus"
+      )
+    )
+  )
+
+# 3. Compact reproducibility summary for mock/golden controls.
+control_repro_export <- positive_control_bray_summary |>
+  dplyr::rename(
+    Control_type = ControlType,
+    N_pairwise = N_pairwise_comparisons,
+    Mean_Bray_Curtis = Mean_BrayCurtis,
+    Median_Bray_Curtis = Median_BrayCurtis,
+    SD_Bray_Curtis = SD_BrayCurtis,
+    Min_Bray_Curtis = Min_BrayCurtis,
+    Max_Bray_Curtis = Max_BrayCurtis
+  )
+
+# 4. Biological samples excluded for low sequencing depth.
+low_read_export <- low_read_biological |>
+  dplyr::select(
+    SampleID,
+    Reads,
+    SampleType
+  ) |>
+  dplyr::arrange(
+    Reads
+  )
+
+# 5. Final analysis-dataset summary for direct manuscript reporting.
+final_sample_metadata <- data.frame(
+  phyloseq::sample_data(ps_all),
+  check.names = FALSE
+) |>
+  tibble::rownames_to_column(
+    "SampleID"
+  ) |>
+  dplyr::mutate(
+    Reads = as.numeric(
+      phyloseq::sample_sums(ps_all)[SampleID]
+    ),
+    SampleOrigin = as.character(SampleOrigin)
+  )
+
+final_cohort_summary <- final_sample_metadata |>
+  dplyr::group_by(
+    SampleOrigin
+  ) |>
+  dplyr::summarise(
+    N_samples = dplyr::n(),
+    Total_reads = sum(Reads),
+    Mean_reads = mean(Reads),
+    Median_reads = stats::median(Reads),
+    Min_reads = min(Reads),
+    Max_reads = max(Reads),
+    .groups = "drop"
+  )
+
+final_dataset_overall <- tibble::tibble(
+  SampleOrigin = "Overall",
+  N_samples = phyloseq::nsamples(ps_all),
+  Total_reads = sum(final_depths),
+  Mean_reads = mean(final_depths),
+  Median_reads = stats::median(final_depths),
+  Min_reads = min(final_depths),
+  Max_reads = max(final_depths)
+)
+
+final_dataset_export <- dplyr::bind_rows(
+  final_cohort_summary,
+  final_dataset_overall
+) |>
+  dplyr::mutate(
+    N_ASVs = dplyr::if_else(
+      SampleOrigin == "Overall",
+      as.integer(phyloseq::ntaxa(ps_all)),
+      NA_integer_
+    )
+  )
+
+qc_workbook <- list(
+  "Control Summary" = control_summary_export,
+  "Contaminants" = contaminants_export,
+  "Control Reproducibility" = control_repro_export,
+  "Low Read Samples" = low_read_export,
+  "Final Dataset" = final_dataset_export
+)
+
+openxlsx::write.xlsx(
+  qc_workbook,
+  file = file.path(
+    qc_tables_dir,
+    "Baseline_QC_results.xlsx"
+  ),
+  overwrite = TRUE,
+  rowNames = FALSE
+)
+
+cat(
+  "\nSaved streamlined QC workbook to: ",
+  file.path(
+    qc_tables_dir,
+    "Baseline_QC_results.xlsx"
+  ),
+  "\n",
+  sep = ""
+)
+
+# ------------------------------------------------------------------------------
 # SAVE THE FINAL ANALYSIS OBJECT
 # ------------------------------------------------------------------------------
 # All downstream scripts load this object directly instead of re-running the
 # complete preprocessing workflow. Re-run this script only when the raw data,
 # metadata, filtering decisions, taxonomy, or phylogenetic tree change.
-processed_data_dir <- "Data/Processed"
-dir.create(processed_data_dir, recursive = TRUE, showWarnings = FALSE)
-
 saveRDS(
   ps_all,
   file = file.path(processed_data_dir, "baseline_microbiome_phyloseq.rds")
 )
 
 readr::write_csv(
-  asv_key,
+  asv_key_final,
   file.path(processed_data_dir, "baseline_ASV_sequence_key.csv")
 )
 
-cat("\nSaved final baseline phyloseq object to: ",
-    file.path(processed_data_dir, "baseline_microbiome_phyloseq.rds"), "\n", sep = "")
+cat(
+  "\nSaved final baseline phyloseq object (with attached tree) to: ",
+  file.path(processed_data_dir, "baseline_microbiome_phyloseq.rds"),
+  "\n",
+  sep = ""
+)

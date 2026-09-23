@@ -56,7 +56,7 @@ N_RAREFACTIONS <- 100
 # Reproducibility seed.
 RAREFACTION_SEED <- 123
 
-# Fixed rarefaction depth used in the manuscript analysis (minimum sequencing depth).
+# Fixed rarefaction depth used in the manuscript analysis.
 RAREFACTION_DEPTH <- 15857
 
 # Plotting order.
@@ -94,6 +94,14 @@ ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
 results_dir <- "Results/01_Alpha_Diversity"
 tables_dir <- file.path(results_dir, "Tables")
 figures_dir <- file.path(results_dir, "Figures")
+objects_dir <- file.path(results_dir, "Objects")
+
+
+# Output policy:
+#   - save ONE multi-sheet workbook containing only manuscript-relevant results;
+#   - save only complete reader-facing figures (never individual panels);
+#   - save the alpha-panel RDS only because the beta-diversity script needs it
+#     to assemble the final combined main-text diversity figure.
 
 dir.create(
   tables_dir,
@@ -107,10 +115,21 @@ dir.create(
   showWarnings = FALSE
 )
 
+dir.create(
+  objects_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
 
 ## ============================================================================
 ## 3. BASIC DATA CHECKS
 ## ============================================================================
+
+sample_depths <- phyloseq::sample_sums(ps_all)
+
+# Every retained sample must have at least the selected rarefaction depth.
+stopifnot(all(sample_depths >= RAREFACTION_DEPTH))
 
 # Confirm sample names and metadata row names are identical.
 metadata_check <- as.data.frame(phyloseq::sample_data(ps_all))
@@ -723,24 +742,31 @@ sim_all_R <- make_alpha_plot(
 )
 
 # --------------------------------------------------------------------------
-# Main-text figure: Shannon diversity + Faith's PD
+# Main-text alpha panels for the combined alpha + beta diversity figure
 # --------------------------------------------------------------------------
 
-alpha_pan <- ggpubr::ggarrange(
-  shan_all_R,
-  pd_all_R,
-  labels = c("A", "B"),
-  nrow = 1
+# We do NOT save a standalone main alpha-diversity figure here because the
+# manuscript main figure combines alpha- and beta-diversity panels. Instead,
+# we save the alpha plotting objects so that 02_BetaDiversity_Baseline can
+# assemble the final combined Figure 2.
+
+alpha_main_panels <- list(
+  shannon_plot = shan_all_R,
+  faith_pd_plot = pd_all_R,
+  alpha_plot_data = ps_meta_plot,
+  alpha_group_summary = alpha_group_summary,
+  sample_origin_colours = sample_origin_colours,
+  sample_origin_plot_levels = sample_origin_plot_levels,
+  n_rarefactions = N_RAREFACTIONS,
+  rarefaction_depth = RAREFACTION_DEPTH
 )
 
-ggplot2::ggsave(
-  filename = file.path(
-    figures_dir,
-    "Figure_Main_alpha_diversity.pdf"
-  ),
-  plot = alpha_pan,
-  width = 6,
-  height = 6
+saveRDS(
+  alpha_main_panels,
+  file = file.path(
+    objects_dir,
+    "alpha_main_panels_for_combined_figure.rds"
+  )
 )
 
 # --------------------------------------------------------------------------
@@ -757,11 +783,11 @@ alpha_supp_metrics <- ggpubr::ggarrange(
 ggplot2::ggsave(
   filename = file.path(
     figures_dir,
-    "Figure_S_alpha_diversity_complementary_metrics.pdf"
+    "Alpha_Diversity_Complementary_Metrics.pdf"
   ),
   plot = alpha_supp_metrics,
-  width = 6,
-  height = 6
+  width = 8,
+  height = 5
 )
 
 
@@ -1353,7 +1379,7 @@ sensitivity_plot <- ggplot2::ggplot(
 ggplot2::ggsave(
   filename = file.path(
     figures_dir,
-    "Figure_S_alpha_diversity_sensitivity.pdf"
+    "Alpha_Diversity_Rarefaction_Sensitivity.pdf"
   ),
   plot = sensitivity_plot,
   width = 10,
@@ -1362,36 +1388,79 @@ ggplot2::ggsave(
 
 
 ## ============================================================================
-## 17. EXPORT SUPPLEMENTARY STATISTICAL TABLE
+## 17. SAVE ONE STREAMLINED ALPHA-DIVERSITY RESULTS WORKBOOK
 ## ============================================================================
 
-# One reader-facing workbook contains only the information needed to support
-# the alpha-diversity results in the main text and Supplementary Material:
-#   1. descriptive group summaries for all four metrics,
-#   2. omnibus Type III tests for the repeated-rarefaction models,
-#   3. Tukey-adjusted pairwise comparisons for the repeated-rarefaction models,
-#   4. repeated-rarefaction vs unrarefied sensitivity comparisons.
+# This is the ONLY reader-facing table file produced by this script.
+# It contains the four result sets needed for the manuscript and supplement.
+#
+# Sheets:
+#   Group Summary
+#     Descriptive mean, SE, SD, range, and n for each diversity metric by cohort.
+#
+#   Omnibus Tests
+#     Type III tests for SampleOrigin and Sex from the primary repeated-
+#     rarefaction mixed models.
+#
+#   Pairwise Tests
+#     Tukey-adjusted SampleOrigin contrasts from the primary repeated-
+#     rarefaction mixed models.
+#
+#   Rarefaction Sensitivity
+#     The same pairwise contrasts from the primary repeated-rarefaction and
+#     unrarefied analyses, allowing direct assessment of robustness.
+
+alpha_results_workbook <- list(
+  "Group Summary" =
+    alpha_group_summary,
+
+  "Omnibus Tests" =
+    anova_results,
+
+  "Pairwise Tests" =
+    tukey_results,
+
+  "Rarefaction Sensitivity" =
+    sensitivity_pairwise
+)
 
 openxlsx::write.xlsx(
-  list(
-    Group_summary =
-      alpha_group_summary,
-
-    Omnibus_tests =
-      anova_results,
-
-    Pairwise_tests =
-      tukey_results,
-
-    Sensitivity =
-      sensitivity_pairwise
-  ),
-
+  alpha_results_workbook,
   file = file.path(
     tables_dir,
-    "Table_S_alpha_diversity_results.xlsx"
+    "Alpha_Diversity_results.xlsx"
   ),
-
   rowNames = FALSE,
   overwrite = TRUE
+)
+
+cat(
+  "\nSaved alpha-diversity results workbook to: ",
+  file.path(
+    tables_dir,
+    "Alpha_Diversity_results.xlsx"
+  ),
+  "\n",
+  sep = ""
+)
+
+
+## ============================================================================
+## 18. OUTPUT SUMMARY
+## ============================================================================
+
+cat(
+  "\n============================================================\n",
+  "ALPHA-DIVERSITY OUTPUTS\n",
+  "============================================================\n",
+  "Workbook:\n  ",
+  file.path(tables_dir, "Alpha_Diversity_results.xlsx"),
+  "\n\nReader-facing figures:\n  ",
+  file.path(figures_dir, "Alpha_Diversity_Complementary_Metrics.pdf"),
+  "\n  ",
+  file.path(figures_dir, "Alpha_Diversity_Rarefaction_Sensitivity.pdf"),
+  "\n\nDownstream figure object (not a manuscript table/figure):\n  ",
+  file.path(objects_dir, "alpha_main_panels_for_combined_figure.rds"),
+  "\n============================================================\n",
+  sep = ""
 )

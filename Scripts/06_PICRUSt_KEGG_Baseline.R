@@ -16,14 +16,16 @@
 # The analysis is intentionally focused on outputs that are useful for the
 # manuscript and for reproducibility:
 #
-#   1. KO -> KEGG pathway conversion and QC
-#   2. >=10% pathway-prevalence filtering
-#   3. KEGG functional beta diversity (Bray-Curtis)
-#   4. omnibus and pairwise PERMANOVA + PERMDISP
-#   5. sequencing-depth sensitivity analysis
-#   6. differential KEGG pathway abundance with MaAsLin3
-#   7. concise descriptive summaries of significant pathways
-#   8. publication-oriented figures and tables
+#   1. weighted NSTI prediction-quality analysis
+#   2. KO -> KEGG pathway conversion and QC
+#   3. >=10% pathway-prevalence filtering
+#   4. KEGG functional beta diversity (Bray-Curtis)
+#   5. omnibus and pairwise PERMANOVA + PERMDISP
+#   6. sequencing-depth sensitivity analysis
+#   7. pathway-prevalence sensitivity analysis for functional PERMANOVA
+#   8. differential KEGG pathway abundance with MaAsLin3
+#   9. concise descriptive summaries of significant pathways
+#  10. publication-oriented figures and tables
 #
 # IMPORTANT INTERPRETATION
 # ------------------------
@@ -44,7 +46,10 @@
 # ------------------
 # - KEGG pathway abundance is generated from PICRUSt2 KO predictions with
 #   ggpicrust2::ko2kegg_abundance().
-# - Pathways must be predicted in >=10% of samples.
+# - Pathways must be predicted in >=10% of samples for the PRIMARY analysis.
+# - Robustness of functional beta diversity to this filtering choice is checked
+#   across pathway-prevalence thresholds from 0-20%.
+# - MaAsLin3 is NOT rerun across prevalence thresholds.
 # - Relative pathway abundance is used for Bray-Curtis beta diversity.
 # - Beta diversity uses one sample per mouse because SampleOrigin is a
 #   between-mouse predictor.
@@ -63,13 +68,14 @@
 # Data/Processed/baseline_microbiome_phyloseq.rds
 # Results/PICRUSt_Outputs/results/KO_metagenome_out/
 #   pred_metagenome_unstrat.tsv.gz
+# Results/PICRUSt_Outputs/results/EC_metagenome_out/
+#   weighted_nsti.tsv.gz
 #
 # OUTPUTS
 # -------
 # Results/05_PICRUSt2_Functional_Prediction/
-#   Tables/KEGG/
-#   Figures/KEGG/
-#   Model_Output/KEGG_MaAsLin3/
+#   Tables/
+#   Figures/
 # ==============================================================================
 
 
@@ -86,8 +92,12 @@ required_packages <- c(
   "tibble",
   "ggplot2",
   "vegan",
+  "lmerTest",
+  "emmeans",
   "maaslin3",
-  "patchwork"
+  "patchwork",
+  "cowplot",
+  "openxlsx"
 )
 
 missing_packages <- required_packages[
@@ -127,6 +137,15 @@ ko_file <- file.path(
   "pred_metagenome_unstrat.tsv.gz"
 )
 
+
+nsti_file <- file.path(
+  "Results",
+  "PICRUSt_Outputs",
+  "results",
+  "EC_metagenome_out",
+  "weighted_nsti.tsv.gz"
+)
+
 if (!file.exists(phyloseq_file)) {
   stop("Could not find processed phyloseq object: ", phyloseq_file)
 }
@@ -135,25 +154,56 @@ if (!file.exists(ko_file)) {
   stop("Could not find PICRUSt2 KO table: ", ko_file)
 }
 
+if (!file.exists(nsti_file)) {
+  stop("Could not find PICRUSt2 weighted NSTI table: ", nsti_file)
+}
+
 # ------------------------------------------------------------------------------
 # Output directories
 # ------------------------------------------------------------------------------
 
 output_dir <- "Results/05_PICRUSt2_Functional_Prediction"
 
-tables_dir <- file.path(output_dir, "Tables", "KEGG")
-figures_dir <- file.path(output_dir, "Figures", "KEGG")
-maaslin_dir <- file.path(output_dir, "Model_Output", "KEGG_MaAsLin3")
+tables_dir <- file.path(output_dir, "Tables")
+figures_dir <- file.path(output_dir, "Figures")
+
+# MaAsLin3 writes several intermediate files while fitting. These are required
+# during the run but are not reader-facing outputs, so keep them in the R
+# session temporary directory rather than under Results/.
+maaslin_dir <- file.path(
+  tempdir(),
+  "PICRUSt2_MaAsLin3"
+)
 
 for (x in c(tables_dir, figures_dir, maaslin_dir)) {
   dir.create(x, recursive = TRUE, showWarnings = FALSE)
 }
+
+# Output policy:
+#   - save ONE multi-sheet workbook with the key PICRUSt2 results;
+#   - save only COMPLETE figures, never individual panels from multipanel figures;
+#   - retain detailed intermediate tables/plot objects in memory for analysis;
+#   - remove temporary MaAsLin3 output after the final workbook/figures are saved.
 
 # ------------------------------------------------------------------------------
 # Analysis settings
 # ------------------------------------------------------------------------------
 
 minimum_pathway_prevalence <- 0.10
+
+# Sensitivity analysis for the pathway-prevalence filter used in the
+# functional beta-diversity PERMANOVA. The 10% threshold remains primary.
+pathway_prevalence_sweep <- c(
+  0,
+  0.025,
+  0.05,
+  0.075,
+  0.10,
+  0.125,
+  0.15,
+  0.20
+)
+
 q_threshold <- 0.05
 n_permutations <- 9999
 random_seed <- 123
@@ -183,6 +233,49 @@ contrast_names <- c(
   "Lab-like vs Wild-like",
   "Lab vs Wild-like",
   "Lab vs Lab-like"
+)
+
+
+# ------------------------------------------------------------------------------
+# Consistent comparison display order for all pairwise figures
+# ------------------------------------------------------------------------------
+# Statistical contrasts are kept in their original MaAsLin3/PERMANOVA direction
+# internally. For plotting only, comparisons are re-labelled so the wilder cohort
+# is always named first along the ecological spectrum:
+# Wild -> Wild-like -> Lab-like -> Lab.
+
+directional_contrast_key <- tibble::tribble(
+  ~display_test,              ~source_test,                  ~multiplier,
+  "Wild vs Wild-like",        "Wild-like vs Wild",          -1,
+  "Wild vs Lab-like",         "Lab-like vs Wild",           -1,
+  "Wild vs Lab",              "Lab vs Wild",                -1,
+  "Wild-like vs Lab-like",    "Lab-like vs Wild-like",      -1,
+  "Wild-like vs Lab",         "Lab vs Wild-like",           -1,
+  "Lab-like vs Lab",          "Lab vs Lab-like",            -1
+)
+
+directional_contrast_order <- c(
+  "Wild vs Wild-like",
+  "Wild vs Lab-like",
+  "Wild vs Lab",
+  "Wild-like vs Lab-like",
+  "Wild-like vs Lab",
+  "Lab-like vs Lab"
+)
+
+comparison_display_key <- directional_contrast_key |>
+  dplyr::select(
+    source_test,
+    display_test
+  )
+
+comparison_display_labels <- c(
+  "Wild vs Wild-like" = "Wild – Wild-like",
+  "Wild vs Lab-like" = "Wild – Lab-like",
+  "Wild vs Lab" = "Wild – Lab",
+  "Wild-like vs Lab-like" = "Wild-like – Lab-like",
+  "Wild-like vs Lab" = "Wild-like – Lab",
+  "Lab-like vs Lab" = "Lab-like – Lab"
 )
 
 contrast_key <- tibble::tribble(
@@ -247,8 +340,213 @@ print(
 )
 
 
+
 # ==============================================================================
-# 2. READ AND VALIDATE PICRUSt2 KO PREDICTIONS
+# 2. WEIGHTED NSTI PREDICTION-QUALITY ANALYSIS
+# ==============================================================================
+#
+# Weighted nearest-sequenced-taxon index (NSTI) summarizes the phylogenetic
+# distance between each sample's observed taxa and reference genomes used by
+# PICRUSt2. Lower values indicate closer reference-genome representation.
+#
+# This section is transferred from the previous functional-analysis script. It is retained
+# here because NSTI is a PICRUSt2 prediction-quality diagnostic and therefore
+# applies to the KEGG functional predictions as well.
+# ==============================================================================
+
+nsti <- readr::read_tsv(
+  nsti_file,
+  show_col_types = FALSE
+)
+
+required_nsti_columns <- c(
+  "sample",
+  "weighted_NSTI"
+)
+
+if (!all(required_nsti_columns %in% names(nsti))) {
+  stop(
+    "weighted_nsti.tsv.gz does not contain the expected columns: ",
+    paste(required_nsti_columns, collapse = ", ")
+  )
+}
+
+if (anyDuplicated(nsti$sample)) {
+  stop("Duplicated sample IDs detected in weighted_nsti.tsv.gz.")
+}
+
+# Restrict NSTI results to the samples in the final processed phyloseq object.
+nsti <- nsti |>
+  dplyr::filter(
+    sample %in% metadata_kegg$SampleID
+  )
+
+if (!setequal(nsti$sample, metadata_kegg$SampleID)) {
+  missing_nsti <- setdiff(
+    metadata_kegg$SampleID,
+    nsti$sample
+  )
+
+  stop(
+    "Weighted NSTI values are missing for ",
+    length(missing_nsti),
+    " sample(s) in the final phyloseq object: ",
+    paste(missing_nsti, collapse = ", ")
+  )
+}
+
+nsti_meta <- nsti |>
+  dplyr::left_join(
+    metadata_kegg |>
+      dplyr::select(
+        SampleID,
+        SampleOrigin,
+        mouse_ID_dataset
+      ),
+    by = c("sample" = "SampleID")
+  ) |>
+  dplyr::mutate(
+    SampleOrigin = factor(
+      SampleOrigin,
+      levels = group_levels
+    ),
+    mouse_ID_dataset = factor(
+      mouse_ID_dataset
+    )
+  )
+
+if (anyNA(nsti_meta$SampleOrigin)) {
+  stop("At least one NSTI sample failed to receive SampleOrigin metadata.")
+}
+
+if (anyNA(nsti_meta$mouse_ID_dataset)) {
+  stop("At least one NSTI sample failed to receive mouse_ID_dataset metadata.")
+}
+
+nsti_summary <- nsti_meta |>
+  dplyr::group_by(
+    SampleOrigin
+  ) |>
+  dplyr::summarise(
+    n = dplyr::n(),
+    mean_NSTI = mean(
+      weighted_NSTI,
+      na.rm = TRUE
+    ),
+    sd_NSTI = stats::sd(
+      weighted_NSTI,
+      na.rm = TRUE
+    ),
+    median_NSTI = stats::median(
+      weighted_NSTI,
+      na.rm = TRUE
+    ),
+    min_NSTI = min(
+      weighted_NSTI,
+      na.rm = TRUE
+    ),
+    max_NSTI = max(
+      weighted_NSTI,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  )
+
+# Account for repeated samples from the same mouse.
+nsti_model <- lmerTest::lmer(
+  weighted_NSTI ~
+    SampleOrigin +
+    (1 | mouse_ID_dataset),
+  data = nsti_meta
+)
+
+nsti_anova <- stats::anova(
+  nsti_model
+)
+
+nsti_emmeans <- emmeans::emmeans(
+  nsti_model,
+  pairwise ~ SampleOrigin,
+  adjust = "tukey"
+)
+
+nsti_emmeans_table <- as.data.frame(
+  nsti_emmeans$emmeans
+)
+
+nsti_pairwise_table <- as.data.frame(
+  nsti_emmeans$contrasts
+)
+
+nsti_anova_table <- data.frame(
+  term = rownames(nsti_anova),
+  nsti_anova,
+  row.names = NULL,
+  check.names = FALSE
+)
+
+cat("\nOverall weighted NSTI summary:\n")
+print(
+  summary(nsti_meta$weighted_NSTI)
+)
+
+cat("\nWeighted NSTI by SampleOrigin:\n")
+print(
+  nsti_summary
+)
+
+cat("\nNSTI mixed-model ANOVA:\n")
+print(
+  nsti_anova
+)
+
+cat("\nNSTI estimated marginal means and Tukey contrasts:\n")
+print(
+  nsti_emmeans
+)
+
+# Save NSTI QC/statistical results.
+
+
+
+
+# Standalone NSTI QC figure.
+p_nsti <- ggplot2::ggplot(
+  nsti_meta,
+  ggplot2::aes(
+    x = SampleOrigin,
+    y = weighted_NSTI
+  )
+) +
+  ggplot2::geom_boxplot(
+    outlier.shape = NA,
+    width = 0.55
+  ) +
+  ggplot2::geom_jitter(
+    width = 0.15,
+    alpha = 0.5,
+    size = 1.5
+  ) +
+  ggplot2::scale_x_discrete(
+    labels = cohort_labels
+  ) +
+  ggplot2::labs(
+    x = NULL,
+    y = "Weighted NSTI"
+  ) +
+  ggplot2::theme_classic(
+    base_size = 11
+  ) +
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(
+      colour = "black"
+    )
+  )
+
+
+
+# ==============================================================================
+# 3. READ AND VALIDATE PICRUSt2 KO PREDICTIONS
 # ==============================================================================
 
 ko_raw <- readr::read_tsv(
@@ -304,7 +602,7 @@ cat(
 
 
 # ==============================================================================
-# 3. CONVERT KO ABUNDANCES TO KEGG PATHWAY ABUNDANCES
+# 4. CONVERT KO ABUNDANCES TO KEGG PATHWAY ABUNDANCES
 # ==============================================================================
 
 # ggpicrust2 aggregates predicted KOs using its bundled KO-to-KEGG mapping.
@@ -338,7 +636,7 @@ cat(
 
 
 # ==============================================================================
-# 4. ANNOTATE KEGG PATHWAYS
+# 5. ANNOTATE KEGG PATHWAYS
 # ==============================================================================
 
 # ko_to_kegg_reference has one row per KO-pathway association. Collapse it to
@@ -372,7 +670,7 @@ if (!setequal(rownames(kegg_pathways), kegg_annotation$pathway_id)) {
 
 
 # ==============================================================================
-# 5. MATCH KEGG SAMPLES TO PHYLOSEQ METADATA
+# 6. MATCH KEGG SAMPLES TO PHYLOSEQ METADATA
 # ==============================================================================
 
 kegg_sample_ids <- colnames(kegg_pathways)
@@ -398,7 +696,7 @@ stopifnot(
 
 
 # ==============================================================================
-# 6. PATHWAY PREVALENCE FILTERING AND RELATIVE ABUNDANCE
+# 7. PATHWAY PREVALENCE FILTERING AND RELATIVE ABUNDANCE
 # ==============================================================================
 
 kegg_prevalence <- tibble::tibble(
@@ -459,14 +757,10 @@ kegg_pathway_qc <- kegg_prevalence |>
     pathway_id
   )
 
-readr::write_csv(
-  kegg_pathway_qc,
-  file.path(tables_dir, "KEGG_pathway_annotation_and_prevalence.csv")
-)
 
 
 # ==============================================================================
-# 7. SELECT ONE INDEPENDENT SAMPLE PER MOUSE FOR BETA DIVERSITY
+# 8. SELECT ONE INDEPENDENT SAMPLE PER MOUSE FOR BETA DIVERSITY
 # ==============================================================================
 
 # Colony mice: sample closest to Timept = 0.
@@ -553,7 +847,7 @@ print(independent_sample_counts)
 
 
 # ==============================================================================
-# 8. KEGG FUNCTIONAL BETA DIVERSITY
+# 9. KEGG FUNCTIONAL BETA DIVERSITY
 # ==============================================================================
 
 kegg_bray <- vegan::vegdist(
@@ -723,7 +1017,7 @@ print(kegg_pairwise_permanova)
 
 
 # ==============================================================================
-# 9. SEQUENCING-DEPTH SENSITIVITY ANALYSIS
+# 10. SEQUENCING-DEPTH SENSITIVITY ANALYSIS
 # ==============================================================================
 
 # This is a diagnostic because PICRUSt2 pathway abundance derives from 16S data.
@@ -764,8 +1058,196 @@ cat("\nMarginal PERMANOVA adjusted for sequencing depth:\n")
 print(kegg_permanova_adjusted)
 
 
+
 # ==============================================================================
-# 10. SAVE KEGG BETA-DIVERSITY TABLES
+# 10B. PATHWAY-PREVALENCE SENSITIVITY ANALYSIS — PERMANOVA ONLY
+# ==============================================================================
+#
+# The primary analysis excludes pathways predicted in <10% of samples.
+# This sensitivity analysis asks whether the overall SampleOrigin effect on
+# predicted functional composition is robust to that filtering choice.
+#
+# The same independent one-sample-per-mouse dataset is used at every threshold.
+# At each threshold:
+#   1. pathways are filtered from the UNFILTERED KEGG pathway matrix,
+#   2. pathway abundances are renormalized to relative abundance,
+#   3. Bray-Curtis dissimilarities are recalculated,
+#   4. the omnibus PERMANOVA SampleOrigin effect is rerun.
+#
+# MaAsLin3 is deliberately NOT rerun here. The purpose is only to establish
+# robustness of the overall functional-composition result.
+# ==============================================================================
+
+kegg_prevalence_sensitivity <- lapply(
+  seq_along(pathway_prevalence_sweep),
+  function(i) {
+
+    prevalence_cutoff <- pathway_prevalence_sweep[i]
+
+    keep_ids <- rownames(kegg_pathways)[
+      rowMeans(kegg_pathways > 0) >= prevalence_cutoff
+    ]
+
+    kegg_threshold <- kegg_pathways[
+      keep_ids,
+      ,
+      drop = FALSE
+    ]
+
+    if (nrow(kegg_threshold) == 0) {
+      stop(
+        "No KEGG pathways retained at prevalence cutoff ",
+        prevalence_cutoff
+      )
+    }
+
+    if (any(colSums(kegg_threshold) <= 0)) {
+      stop(
+        "At least one sample has zero total predicted pathway abundance at ",
+        prevalence_cutoff * 100,
+        "% prevalence."
+      )
+    }
+
+    # Renormalize after filtering.
+    kegg_threshold_relative <- sweep(
+      kegg_threshold,
+      MARGIN = 2,
+      STATS = colSums(kegg_threshold),
+      FUN = "/"
+    )
+
+    # Use exactly the same independent mice as the primary analysis.
+    threshold_beta_matrix <- t(
+      kegg_threshold_relative[
+        ,
+        single_sample_ids,
+        drop = FALSE
+      ]
+    )
+
+    stopifnot(
+      identical(
+        rownames(threshold_beta_matrix),
+        metadata_kegg_single$SampleID
+      )
+    )
+
+    threshold_bray <- vegan::vegdist(
+      threshold_beta_matrix,
+      method = "bray"
+    )
+
+    # Use the same random seed at every cutoff so differences reflect the
+    # filtering scheme rather than different permutation draws.
+    set.seed(random_seed)
+
+    threshold_permanova <- vegan::adonis2(
+      threshold_bray ~ SampleOrigin,
+      data = metadata_kegg_single,
+      permutations = n_permutations
+    )
+
+    tibble::tibble(
+      prevalence_cutoff = prevalence_cutoff,
+      prevalence_percent = prevalence_cutoff * 100,
+      pathways_retained = nrow(kegg_threshold),
+      F = threshold_permanova$F[1],
+      R2 = threshold_permanova$R2[1],
+      p_value = threshold_permanova$`Pr(>F)`[1],
+      primary_threshold =
+        prevalence_cutoff == minimum_pathway_prevalence
+    )
+  }
+) |>
+  dplyr::bind_rows()
+
+cat(
+  "\nKEGG pathway-prevalence sensitivity — omnibus PERMANOVA:\n"
+)
+
+print(kegg_prevalence_sensitivity)
+
+
+
+# ------------------------------------------------------------------------------
+# Supplementary pathway-prevalence sensitivity figure
+# ------------------------------------------------------------------------------
+
+p_kegg_prevalence_A <- ggplot2::ggplot(
+  kegg_prevalence_sensitivity,
+  ggplot2::aes(
+    x = prevalence_percent,
+    y = pathways_retained
+  )
+) +
+  ggplot2::geom_line(
+    linewidth = 0.7
+  ) +
+  ggplot2::geom_point(
+    size = 2.2
+  ) +
+  ggplot2::geom_vline(
+    xintercept = 100 * minimum_pathway_prevalence,
+    linetype = 2,
+    linewidth = 0.5
+  ) +
+  ggplot2::labs(
+    x = "Global pathway prevalence cutoff (%)",
+    y = "KEGG pathways retained"
+  ) +
+  ggplot2::theme_classic(
+    base_size = 11
+  )
+
+p_kegg_prevalence_B <- ggplot2::ggplot(
+  kegg_prevalence_sensitivity,
+  ggplot2::aes(
+    x = prevalence_percent,
+    y = R2
+  )
+) +
+  ggplot2::geom_line(
+    linewidth = 0.7
+  ) +
+  ggplot2::geom_point(
+    size = 2.2
+  ) +
+  ggplot2::geom_vline(
+    xintercept = 100 * minimum_pathway_prevalence,
+    linetype = 2,
+    linewidth = 0.5
+  ) +
+  ggplot2::labs(
+    x = "Global pathway prevalence cutoff (%)",
+    y = expression(PERMANOVA~R^2)
+  ) +
+  ggplot2::theme_classic(
+    base_size = 11
+  )
+
+p_kegg_prevalence_sensitivity <- patchwork::wrap_plots(
+  p_kegg_prevalence_A,
+  p_kegg_prevalence_B,
+  nrow = 1
+) +
+  patchwork::plot_annotation(
+    tag_levels = "A"
+  )
+
+ggplot2::ggsave(
+  filename = file.path(
+    figures_dir,
+    "PICRUSt2_Pathway_Filtering_Sensitivity.pdf"
+  ),
+  plot = p_kegg_prevalence_sensitivity,
+  width = 8.5,
+  height = 4.2
+)
+
+
+# ==============================================================================
+# 11. PREPARE BETA-DIVERSITY RESULT TABLES
 # ==============================================================================
 
 # Compact summary table of the principal omnibus tests.
@@ -800,29 +1282,13 @@ kegg_beta_summary <- tibble::tibble(
   )
 )
 
-readr::write_csv(
-  kegg_beta_summary,
-  file.path(tables_dir, "KEGG_beta_diversity_omnibus_results.csv")
-)
 
-readr::write_csv(
-  kegg_pairwise_permanova,
-  file.path(tables_dir, "KEGG_pairwise_PERMANOVA_results.csv")
-)
 
-readr::write_csv(
-  kegg_dispersion_summary,
-  file.path(tables_dir, "KEGG_dispersion_by_sample_origin.csv")
-)
 
-readr::write_csv(
-  kegg_depth_summary,
-  file.path(tables_dir, "KEGG_sequencing_depth_by_sample_origin.csv")
-)
 
 
 # ==============================================================================
-# 11. PREPARE DATA FOR DIFFERENTIAL KEGG PATHWAY ABUNDANCE
+# 12. PREPARE DATA FOR DIFFERENTIAL KEGG PATHWAY ABUNDANCE
 # ==============================================================================
 
 # MaAsLin3 uses all eligible samples. Repeated samples are handled using a mouse
@@ -874,7 +1340,7 @@ print(
 
 
 # ==============================================================================
-# 12. DIFFERENTIAL KEGG PATHWAY ABUNDANCE WITH MaAsLin3
+# 13. DIFFERENTIAL KEGG PATHWAY ABUNDANCE WITH MaAsLin3
 # ==============================================================================
 
 if (rerun_maaslin3 && dir.exists(maaslin_dir)) {
@@ -926,7 +1392,7 @@ kegg_fit <- maaslin3::maaslin3(
 
 
 # ==============================================================================
-# 13. DEFINE AND TEST ALL SIX SAMPLE-ORIGIN CONTRASTS
+# 14. DEFINE AND TEST ALL SIX SAMPLE-ORIGIN CONTRASTS
 # ==============================================================================
 
 # Wild:As is the model reference level. Positive coefficients from each contrast
@@ -1008,7 +1474,7 @@ if (anyNA(kegg_contrast_results$pathway_name)) {
 
 
 # ==============================================================================
-# 14. SUMMARIZE DIFFERENTIAL KEGG PATHWAYS
+# 15. SUMMARIZE DIFFERENTIAL KEGG PATHWAYS
 # ==============================================================================
 
 kegg_significant_counts <- kegg_contrast_results |>
@@ -1073,42 +1539,31 @@ cat(
 
 
 # ==============================================================================
-# 15. SAVE DIFFERENTIAL-ABUNDANCE TABLES
+# 16. PREPARE DIFFERENTIAL-ABUNDANCE RESULT TABLES
 # ==============================================================================
 
 # Complete annotated pairwise results: the main reproducibility table.
-readr::write_csv(
-  kegg_contrast_results,
-  file.path(tables_dir, "KEGG_differential_abundance_all_pairwise_results.csv")
-)
 
 # Significant subset for convenient manuscript/supplementary use.
-readr::write_csv(
-  kegg_contrast_results |>
-    dplyr::filter(significant),
-  file.path(tables_dir, "KEGG_differential_abundance_significant_results.csv")
-)
 
-readr::write_csv(
-  kegg_significant_counts,
-  file.path(tables_dir, "KEGG_differential_abundance_summary_by_comparison.csv")
-)
 
-readr::write_csv(
-  kegg_level2_summary,
-  file.path(tables_dir, "KEGG_Level2_descriptive_summary.csv")
-)
 
 
 # ==============================================================================
 
 
-# 16. PRINT MANUSCRIPT-RELEVANT RESULTS TO CONSOLE
+# 17. PRINT MANUSCRIPT-RELEVANT RESULTS TO CONSOLE
 # ==============================================================================
 
 cat("\n============================================================\n")
-cat("KEGG ANALYSIS SUMMARY\n")
+cat("PICRUSt2 KEGG + NSTI ANALYSIS SUMMARY\n")
 cat("============================================================\n")
+
+cat("\nWeighted NSTI by SampleOrigin:\n")
+print(nsti_summary)
+
+cat("\nNSTI mixed-model ANOVA:\n")
+print(nsti_anova)
 
 cat(
   "Pathways retained: ",
@@ -1156,11 +1611,12 @@ cat(
 
 cat("\nSaved KEGG tables to:\n  ", tables_dir, "\n", sep = "")
 cat("Saved KEGG figures to:\n  ", figures_dir, "\n", sep = "")
+cat("Saved pathway-prevalence PERMANOVA sensitivity table and figure.\n")
 cat("Saved MaAsLin3 model output to:\n  ", maaslin_dir, "\n", sep = "")
 
 
 # ==============================================================================
-# 17. FIGURE SETUP
+# 18. FIGURE SETUP
 # ==============================================================================
 #
 # All figure construction is kept at the end of the script so the analysis,
@@ -1190,7 +1646,7 @@ direction_colours <- c(
 
 
 # ==============================================================================
-# 18. FIGURE A — KEGG FUNCTIONAL COMPOSITION PCoA
+# 19. FIGURE A — KEGG FUNCTIONAL COMPOSITION PCoA
 # ==============================================================================
 
 p_kegg_pcoa <- ggplot2::ggplot(
@@ -1227,16 +1683,10 @@ p_kegg_pcoa <- ggplot2::ggplot(
     axis.text = ggplot2::element_text(colour = "black")
   )
 
-ggplot2::ggsave(
-  file.path(figures_dir, "KEGG_pathway_composition_PCoA.pdf"),
-  p_kegg_pcoa,
-  width = 7,
-  height = 5.5
-)
 
 
 # ==============================================================================
-# 19. SUPPLEMENTARY FIGURE — PAIRWISE FUNCTIONAL EFFECT SIZES
+# 20. SUPPLEMENTARY FIGURE — PAIRWISE FUNCTIONAL EFFECT SIZES
 # ==============================================================================
 #
 # Pairwise PERMANOVA R2 values are retained as a useful standalone summary,
@@ -1245,9 +1695,18 @@ ggplot2::ggsave(
 
 pairwise_effect_plot_data <- kegg_pairwise_permanova |>
   dplyr::mutate(
+    source_test = as.character(test)
+  ) |>
+  dplyr::left_join(
+    comparison_display_key,
+    by = "source_test"
+  ) |>
+  dplyr::mutate(
+    # Reverse factor levels because this comparison is plotted on the y-axis:
+    # the first level should appear at the TOP of the horizontal plot.
     test_label = factor(
-      as.character(test),
-      levels = rev(contrast_names)
+      display_test,
+      levels = rev(directional_contrast_order)
     ),
     p_label = paste0(
       "BH p ",
@@ -1284,6 +1743,9 @@ p_kegg_pairwise_effects <- ggplot2::ggplot(
     limits = c(0, max(pairwise_effect_plot_data$R2) * 1.35),
     expand = ggplot2::expansion(mult = c(0, 0.02))
   ) +
+  ggplot2::scale_y_discrete(
+    labels = comparison_display_labels
+  ) +
   ggplot2::labs(
     x = expression("Pairwise PERMANOVA " * R^2),
     y = NULL
@@ -1293,16 +1755,10 @@ p_kegg_pairwise_effects <- ggplot2::ggplot(
     axis.text = ggplot2::element_text(colour = "black")
   )
 
-ggplot2::ggsave(
-  file.path(figures_dir, "KEGG_pairwise_PERMANOVA_effect_sizes.pdf"),
-  p_kegg_pairwise_effects,
-  width = 7.5,
-  height = 5.2
-)
 
 
 # ==============================================================================
-# 20. FIGURE B — NUMBER AND PROPORTION OF DIFFERENTIAL KEGG PATHWAYS
+# 21. FIGURE B — NUMBER AND PROPORTION OF DIFFERENTIAL KEGG PATHWAYS
 # ==============================================================================
 #
 # Bars show the number of FDR-significant pathways in each pairwise comparison.
@@ -1311,9 +1767,17 @@ ggplot2::ggsave(
 
 pathway_count_plot_data <- kegg_significant_counts |>
   dplyr::mutate(
+    source_test = as.character(test)
+  ) |>
+  dplyr::left_join(
+    comparison_display_key,
+    by = "source_test"
+  ) |>
+  dplyr::mutate(
+    # Reverse factor levels because comparisons are plotted on the y-axis.
     test_label = factor(
-      as.character(test),
-      levels = rev(contrast_names)
+      display_test,
+      levels = rev(directional_contrast_order)
     ),
     count_label = paste0(
       n_significant,
@@ -1348,6 +1812,9 @@ p_kegg_pathway_counts <- ggplot2::ggplot(
     ),
     expand = ggplot2::expansion(mult = c(0, 0.02))
   ) +
+  ggplot2::scale_y_discrete(
+    labels = comparison_display_labels
+  ) +
   ggplot2::labs(
     x = "FDR-significant predicted KEGG pathways",
     y = NULL
@@ -1357,16 +1824,10 @@ p_kegg_pathway_counts <- ggplot2::ggplot(
     axis.text = ggplot2::element_text(colour = "black")
   )
 
-ggplot2::ggsave(
-  file.path(figures_dir, "KEGG_differential_pathway_counts.pdf"),
-  p_kegg_pathway_counts,
-  width = 7.5,
-  height = 5.2
-)
 
 
 # ==============================================================================
-# 21. FIGURE C — COMPLETE KEGG LEVEL-2 DIRECTIONAL SUMMARY
+# 22. FIGURE C — COMPLETE KEGG LEVEL-2 DIRECTIONAL SUMMARY
 # ==============================================================================
 #
 # This figure includes ALL KEGG Level 2 categories represented among the tested
@@ -1387,27 +1848,12 @@ ggplot2::ggsave(
 # ==============================================================================
 
 # -----------------------------------------------------------------------------
-# 21A. Define consistent display directions
+# 21A. Reuse the shared wild-to-lab comparison display definitions
 # -----------------------------------------------------------------------------
+# directional_contrast_key and directional_contrast_order were defined near the
+# analysis settings so they are available to every pairwise figure.
 
-directional_contrast_key <- tibble::tribble(
-  ~display_test,              ~source_test,                  ~multiplier,
-  "Wild vs Wild-like",       "Wild-like vs Wild",          -1,
-  "Wild vs Lab-like",        "Lab-like vs Wild",           -1,
-  "Wild vs Lab",             "Lab vs Wild",                -1,
-  "Wild-like vs Lab-like",   "Lab-like vs Wild-like",      -1,
-  "Wild-like vs Lab",        "Lab vs Wild-like",           -1,
-  "Lab-like vs Lab",         "Lab vs Lab-like",            -1
-)
 
-directional_contrast_order <- c(
-  "Wild vs Wild-like",
-  "Wild vs Lab-like",
-  "Wild vs Lab",
-  "Wild-like vs Lab-like",
-  "Wild-like vs Lab",
-  "Lab-like vs Lab"
-)
 
 # -----------------------------------------------------------------------------
 # 21B. Reorient pathway-level coefficients and clean KEGG hierarchy labels
@@ -1715,17 +2161,23 @@ p_kegg_level2_all <- ggplot2::ggplot(
 
 p_kegg_level2_all
 
-ggplot2::ggsave(
-  file.path(figures_dir, "KEGG_Level2_directional_summary_all_categories.pdf"),
-  p_kegg_level2_all,
-  width = 19,
-  height = 8
-)
 
 
 # ==============================================================================
 # FINAL MULTIPANEL FIGURE — PICRUSt2 / KEGG
 # ==============================================================================
+#
+# All cohort/comparison displays follow the same wild-to-lab ordering:
+#   Wild -> Wild-like -> Lab-like -> Lab
+#
+# Panel A uses that order in the cohort legend.
+# Panels B-D use the same wilder-cohort-first ordering of pairwise comparisons.
+# ==============================================================================
+
+p_final_A <- p_kegg_pcoa
+p_final_B <- p_kegg_pairwise_effects
+p_final_C <- p_kegg_pathway_counts
+p_final_D <- p_kegg_level2_all
 
 # A
 p_final_A <- p_final_A +
@@ -1818,16 +2270,266 @@ functional_figure
 
 # Save
 ggplot2::ggsave(
-  file.path(figures_dir, "KEGG_functional_summary_figure.pdf"),
+  file.path(figures_dir, "PICRUSt2_Functional_Summary.pdf"),
   functional_figure,
   width = 16,
   height = 10
 )
 
-ggplot2::ggsave(
-  file.path(figures_dir, "KEGG_functional_summary_figure.png"),
-  functional_figure,
-  width = 16,
-  height = 10,
-  dpi = 600
+
+
+# ==============================================================================
+# SAVE ONE STREAMLINED PICRUSt2 RESULTS WORKBOOK
+# ==============================================================================
+
+# Compact analysis summary for manuscript reporting and reproducibility.
+picrust2_analysis_summary <- tibble::tibble(
+  Metric = c(
+    "Samples with NSTI values",
+    "Pathways before prevalence filter",
+    "Pathways retained for primary analysis",
+    "Primary pathway prevalence threshold",
+    "Independent mice in beta diversity",
+    "PCoA1 variation (%)",
+    "PCoA2 variation (%)",
+    "Samples in pathway differential-abundance model",
+    "Unique pathways significant in >=1 contrast"
+  ),
+  Value = c(
+    nrow(nsti_meta),
+    nrow(kegg_pathways),
+    nrow(kegg_filtered),
+    minimum_pathway_prevalence,
+    nrow(metadata_kegg_single),
+    pcoa1_percent,
+    pcoa2_percent,
+    nrow(kegg_model_metadata),
+    nrow(kegg_unique_significant)
+  )
+)
+
+# Compact NSTI table: descriptive statistics plus the omnibus mixed-model test.
+nsti_test_export <- nsti_anova_table |>
+  dplyr::filter(
+    term == "SampleOrigin"
+  )
+
+nsti_export <- nsti_summary |>
+  dplyr::mutate(
+    SampleOrigin = as.character(SampleOrigin)
+  )
+
+# Functional beta-diversity omnibus + sequencing-depth sensitivity.
+functional_beta_export <- kegg_beta_summary |>
+  dplyr::rename(
+    Analysis = analysis,
+    F = statistic,
+    P = p_value
+  )
+
+# Pairwise PERMANOVA in the same wild-to-lab display order used in figures.
+pairwise_permanova_export <- kegg_pairwise_permanova |>
+  dplyr::mutate(
+    source_test = as.character(test)
+  ) |>
+  dplyr::left_join(
+    comparison_display_key,
+    by = "source_test"
+  ) |>
+  dplyr::transmute(
+    Comparison = display_test,
+    n_first,
+    n_second,
+    F,
+    R2,
+    P = p_value,
+    P_BH = p_adjusted,
+    significant
+  ) |>
+  dplyr::arrange(
+    factor(
+      Comparison,
+      levels = directional_contrast_order
+    )
+  )
+
+# Keep the full prevalence-sensitivity sweep because it directly supports the
+# dedicated supplementary robustness figure.
+prevalence_sensitivity_export <- kegg_prevalence_sensitivity |>
+  dplyr::select(
+    prevalence_percent,
+    pathways_retained,
+    F,
+    R2,
+    p_value,
+    primary_threshold
+  ) |>
+  dplyr::rename(
+    Prevalence_percent = prevalence_percent,
+    Pathways_retained = pathways_retained,
+    P = p_value,
+    Primary_threshold = primary_threshold
+  )
+
+# Counts of significant pathways by comparison.
+pathway_counts_export <- kegg_significant_counts |>
+  dplyr::mutate(
+    source_test = as.character(test)
+  ) |>
+  dplyr::left_join(
+    comparison_display_key,
+    by = "source_test"
+  ) |>
+  dplyr::transmute(
+    Comparison = display_test,
+    n_tested,
+    n_significant,
+    percent_significant,
+    n_higher_first,
+    n_higher_second
+  ) |>
+  dplyr::arrange(
+    factor(
+      Comparison,
+      levels = directional_contrast_order
+    )
+  )
+
+# Full FDR-significant pathway-level results only. This is the principal
+# Supplementary Data sheet and contains KEGG annotations plus effect estimates.
+significant_pathways_export <- kegg_contrast_results |>
+  dplyr::filter(
+    significant
+  ) |>
+  dplyr::mutate(
+    test = as.character(test)
+  ) |>
+  dplyr::left_join(
+    comparison_display_key,
+    by = c("test" = "source_test")
+  ) |>
+  dplyr::mutate(
+    coef_display = -coef
+  ) |>
+  dplyr::transmute(
+    Comparison = display_test,
+    pathway_id = feature,
+    pathway_name,
+    level1,
+    level2,
+    level3,
+    coefficient_original = coef,
+    coefficient_wild_to_lab = coef_display,
+    stderr,
+    p_value = pval_individual,
+    q_value = qval_individual,
+    model_prevalence,
+    N,
+    N_not_zero
+  ) |>
+  dplyr::arrange(
+    factor(
+      Comparison,
+      levels = directional_contrast_order
+    ),
+    q_value
+  )
+
+# Underlying descriptive Level-2 summary used in panel D. This is not an
+# enrichment analysis; it simply summarizes significant pathway directions.
+level2_export <- kegg_level2_direction_summary |>
+  dplyr::mutate(
+    display_test = as.character(display_test),
+    level1_clean = as.character(level1_clean)
+  ) |>
+  dplyr::transmute(
+    Comparison = display_test,
+    KEGG_Level1 = level1_clean,
+    KEGG_Level2 = level2_clean,
+    n_tested,
+    n_higher_wild = n_wild,
+    n_higher_lab = n_lab,
+    n_nonsignificant,
+    percent_higher_wild = percent_wild,
+    percent_higher_lab = percent_lab,
+    percent_nonsignificant
+  ) |>
+  dplyr::arrange(
+    factor(
+      Comparison,
+      levels = directional_contrast_order
+    ),
+    KEGG_Level1,
+    KEGG_Level2
+  )
+
+picrust2_results_workbook <- list(
+  "Analysis Summary" =
+    picrust2_analysis_summary,
+
+  "NSTI Summary" =
+    nsti_export,
+
+  "NSTI Test" =
+    nsti_test_export,
+
+  "Functional Beta" =
+    functional_beta_export,
+
+  "Pairwise PERMANOVA" =
+    pairwise_permanova_export,
+
+  "Filtering Sensitivity" =
+    prevalence_sensitivity_export,
+
+  "Pathway Counts" =
+    pathway_counts_export,
+
+  "Significant Pathways" =
+    significant_pathways_export,
+
+  "Level2 Summary" =
+    level2_export
+)
+
+openxlsx::write.xlsx(
+  x = picrust2_results_workbook,
+  file = file.path(
+    tables_dir,
+    "PICRUSt2_Functional_Prediction_results.xlsx"
+  ),
+  overwrite = TRUE,
+  rowNames = FALSE
+)
+
+# Remove temporary MaAsLin3 files now that all reader-facing outputs are saved.
+if (dir.exists(maaslin_dir)) {
+  unlink(
+    maaslin_dir,
+    recursive = TRUE,
+    force = TRUE
+  )
+}
+
+cat(
+  "\n============================================================\n",
+  "PICRUSt2 OUTPUTS\n",
+  "============================================================\n",
+  "Workbook:\n  ",
+  file.path(
+    tables_dir,
+    "PICRUSt2_Functional_Prediction_results.xlsx"
+  ),
+  "\n\nComplete figures:\n  ",
+  file.path(
+    figures_dir,
+    "PICRUSt2_Functional_Summary.pdf"
+  ),
+  "\n  ",
+  file.path(
+    figures_dir,
+    "PICRUSt2_Pathway_Filtering_Sensitivity.pdf"
+  ),
+  "\n============================================================\n",
+  sep = ""
 )

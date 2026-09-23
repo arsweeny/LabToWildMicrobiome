@@ -40,7 +40,7 @@ ps_all <- readRDS("Data/Processed/baseline_microbiome_phyloseq.rds")
 # Packages ---------------------------------------------------------------------
 required_packages <- c(
   "phyloseq", "maaslin3", "dplyr", "tidyr", "tibble",
-  "readr", "ggplot2", "mirai"
+  "readr", "ggplot2", "mirai", "openxlsx", "cowplot"
 )
 
 missing_packages <- required_packages[
@@ -57,7 +57,14 @@ if (length(missing_packages) > 0) {
 output_dir <- "Results/03_ASV_Differential_Abundance"
 tables_dir <- file.path(output_dir, "Tables")
 figures_dir <- file.path(output_dir, "Figures")
-model_dir <- file.path(output_dir, "Model_Output")
+
+# MaAsLin3 writes several intermediate files to its output directory. These are
+# required during model fitting/contrast testing but are not manuscript outputs,
+# so place them in the session temporary directory rather than Results/.
+model_dir <- file.path(
+  tempdir(),
+  "Baseline_Differential_Abundance_MaAsLin3"
+)
 asv_model_dir <- file.path(model_dir, "ASV")
 genus_model_dir <- file.path(model_dir, "Genus")
 family_model_dir <- file.path(model_dir, "Family")
@@ -74,6 +81,13 @@ for (x in c(output_dir, tables_dir, figures_dir, model_dir,
             asv_model_dir, genus_model_dir, family_model_dir)) {
   dir.create(x, recursive = TRUE, showWarnings = FALSE)
 }
+
+
+# Output policy:
+#   - save ONE multi-sheet workbook with the key differential-abundance results;
+#   - save ONE complete integrated figure;
+#   - do not save component panels or large intermediate MaAsLin3 tables;
+#   - detailed model objects/results remain available in memory during the run.
 
 # Group order ------------------------------------------------------------------
 group_levels <- c(
@@ -100,6 +114,51 @@ contrast_key <- tibble::tribble(
   "Lab-like:As vs Wild-like:As", "Lab-like:As",  "Wild-like:As",
   "Lab:Mm vs Wild-like:As",      "Lab:Mm",       "Wild-like:As",
   "Lab:Mm vs Lab-like:As",       "Lab:Mm",       "Lab-like:As"
+)
+
+
+# Display-only comparison orientation -------------------------------------------
+# Statistical contrasts above are retained exactly as fitted. For figures, all
+# comparisons are reoriented along the same ecological gradient:
+#
+#   Wild -> Wild-like -> Lab-like -> Lab
+#
+# Every fitted contrast is currently written with the more laboratory-associated
+# cohort first. Therefore all displayed heatmap coefficients are multiplied by
+# -1. This is a DISPLAY-ONLY transformation:
+#
+#   negative displayed coefficient = higher in the first (wilder) cohort
+#   positive displayed coefficient = higher in the second (more lab-associated)
+#
+# Model coefficients, q-values, significance calls, and exported statistical
+# result tables remain unchanged.
+
+display_contrast_key <- tibble::tribble(
+  ~contrast,                           ~display_comparison,       ~coef_multiplier,
+  "Wild-like:As vs Wild:As",           "Wild vs Wild-like",       -1,
+  "Lab-like:As vs Wild:As",            "Wild vs Lab-like",        -1,
+  "Lab:Mm vs Wild:As",                 "Wild vs Lab",             -1,
+  "Lab-like:As vs Wild-like:As",       "Wild-like vs Lab-like",   -1,
+  "Lab:Mm vs Wild-like:As",            "Wild-like vs Lab",        -1,
+  "Lab:Mm vs Lab-like:As",             "Lab-like vs Lab",         -1
+)
+
+display_comparison_order <- c(
+  "Wild vs Wild-like",
+  "Wild vs Lab-like",
+  "Wild vs Lab",
+  "Wild-like vs Lab-like",
+  "Wild-like vs Lab",
+  "Lab-like vs Lab"
+)
+
+display_comparison_labels <- c(
+  "Wild vs Wild-like"     = "Wild vs\nWild-like",
+  "Wild vs Lab-like"      = "Wild vs\nLab-like",
+  "Wild vs Lab"           = "Wild vs\nLab",
+  "Wild-like vs Lab-like" = "Wild-like vs\nLab-like",
+  "Wild-like vs Lab"      = "Wild-like vs\nLab",
+  "Lab-like vs Lab"       = "Lab-like vs\nLab"
 )
 
 # Extract counts and taxonomy --------------------------------------------------
@@ -339,10 +398,6 @@ taxonomic_resolution_summary <- tibble::tibble(
   )
 )
 
-readr::write_csv(
-  taxonomic_resolution_summary,
-  file.path(tables_dir, "Taxonomic_resolution_and_read_coverage.csv")
-)
 
 # Shared mixed-model formula ---------------------------------------------------
 primary_formula <- stats::as.formula(
@@ -587,34 +642,10 @@ family_totals <- make_contrast_totals(family_pairwise)
 family_directions <- make_direction_summary(family_pairwise)
 family_recurrence <- make_recurrence(family_pairwise, "Family")
 
-# Save the essential differential-abundance result tables only.
-# Each taxonomic level has one complete table and one FDR-significant subset.
-readr::write_csv(
-  genus_pairwise,
-  file.path(tables_dir, "genus_differential_abundance_all_pairwise_results.csv")
-)
-readr::write_csv(
-  genus_significant,
-  file.path(tables_dir, "genus_differential_abundance_significant_results.csv")
-)
-readr::write_csv(
-  family_pairwise,
-  file.path(tables_dir, "family_differential_abundance_all_pairwise_results.csv")
-)
-readr::write_csv(
-  family_significant,
-  file.path(tables_dir, "family_differential_abundance_significant_results.csv")
-)
-readr::write_csv(
-  asv_pairwise,
-  file.path(tables_dir, "ASV_differential_abundance_all_pairwise_results.csv")
-)
-readr::write_csv(
-  asv_significant,
-  file.path(tables_dir, "ASV_differential_abundance_significant_results.csv")
-)
+# Reader-facing result tables are written once, at the end of the script, into
+# a single multi-sheet workbook. Full model results remain in memory here.
 
-# MAIN FIGURE 1: number of significant genera ---------------------------------
+# INTERNAL PLOT OBJECT: number of significant genera ---------------------------
 p_genus_counts <- ggplot2::ggplot(
   genus_totals,
   ggplot2::aes(x = contrast, y = n_significant_features)
@@ -637,22 +668,36 @@ p_genus_counts <- ggplot2::ggplot(
   ) +
   ggplot2::theme_classic(base_size = 11)
 
-ggplot2::ggsave(
-  file.path(figures_dir, "genus_significant_feature_counts.pdf"),
-  p_genus_counts,
-  width = 8,
-  height = 5.5
-)
 
-# MAIN FIGURE 2: top 20 genus coefficient heatmap ------------------------------
+# MAIN-FIGURE COMPONENT: top 20 genus coefficient heatmap ----------------------
 # Every row is the same taxonomic rank (Genus). Genera are ranked objectively by
 # recurrence across significant contrasts, then minimum q-value, then effect size.
 selected_genera <- genus_recurrence |>
-  dplyr::slice_head(n = min(max_genera_heatmap, nrow(genus_recurrence))) |>
+  # Exclude taxonomically uninformative placeholder groups from the main figure.
+  # The next highest-ranked informative genus is then included automatically so
+  # the heatmap still contains max_genera_heatmap genera.
+  dplyr::filter(
+    !is.na(Genus),
+    trimws(Genus) != "",
+    tolower(trimws(Genus)) != "incertae sedis"
+  ) |>
+  dplyr::slice_head(
+    n = max_genera_heatmap
+  ) |>
   dplyr::pull(Genus)
+
+cat("\nGenera selected for main heatmap after excluding 'Incertae Sedis':\n")
+print(selected_genera)
 
 genus_heatmap_data <- genus_pairwise |>
   dplyr::filter(Genus %in% selected_genera) |>
+  dplyr::mutate(
+    contrast = as.character(contrast)
+  ) |>
+  dplyr::left_join(
+    display_contrast_key,
+    by = "contrast"
+  ) |>
   dplyr::mutate(
     significance_marker = dplyr::case_when(
       qval_individual < 0.001 ~ "***",
@@ -660,20 +705,36 @@ genus_heatmap_data <- genus_pairwise |>
       qval_individual < 0.05  ~ "*",
       TRUE ~ ""
     ),
+    coef_display = coef * coef_multiplier,
     Genus = factor(Genus, levels = rev(selected_genera)),
-    contrast = factor(contrast, levels = contrast_names)
+    display_comparison = factor(
+      display_comparison,
+      levels = display_comparison_order
+    )
   )
 
 p_genus_heatmap <- ggplot2::ggplot(
   genus_heatmap_data,
-  ggplot2::aes(x = contrast, y = Genus, fill = coef)
+  ggplot2::aes(
+    x = display_comparison,
+    y = Genus,
+    fill = coef_display
+  )
 ) +
   ggplot2::geom_tile(colour = "white", linewidth = 0.25) +
   ggplot2::geom_text(
     ggplot2::aes(label = significance_marker),
     size = 3
   ) +
-  ggplot2::scale_fill_gradient2(midpoint = 0, name = "Coefficient") +
+  ggplot2::scale_fill_gradient2(
+    midpoint = 0,
+    name = "Coefficient"
+  ) +
+  ggplot2::scale_x_discrete(
+    limits = display_comparison_order,
+    labels = display_comparison_labels,
+    drop = FALSE
+  ) +
   ggplot2::labs(
     title = "Pairwise genus-level abundance coefficients",
     subtitle = "Top 20 recurrent/strong genera; * q<0.05, ** q<0.01, *** q<0.001",
@@ -689,14 +750,8 @@ p_genus_heatmap <- ggplot2::ggplot(
 
 genus_heatmap_height <- max(6, 0.28 * length(selected_genera) + 2)
 
-ggplot2::ggsave(
-  file.path(figures_dir, "genus_differential_abundance_effect_heatmap.pdf"),
-  p_genus_heatmap,
-  width = 10.5,
-  height = genus_heatmap_height
-)
 
-# SUPPLEMENTARY FIGURE: complete significant-genus heatmap ---------------------
+# INTERNAL QC PLOT: complete significant-genus heatmap -------------------------
 all_significant_genera <- genus_recurrence$Genus
 
 full_genus_heatmap_data <- genus_pairwise |>
@@ -732,14 +787,8 @@ p_full_genus_heatmap <- ggplot2::ggplot(
     panel.grid = ggplot2::element_blank()
   )
 
-ggplot2::ggsave(
-  file.path(figures_dir, "genus_all_significant_effect_heatmap.pdf"),
-  p_full_genus_heatmap,
-  width = 10.5,
-  height = max(7, 0.25 * length(all_significant_genera) + 2)
-)
 
-# SUPPLEMENTARY FIGURE: family coefficient heatmap -----------------------------
+# INTERNAL QC PLOT: family coefficient heatmap ---------------------------------
 # Family aggregation gives broader taxonomic coverage and tests whether the same
 # origin effects persist at a coarser taxonomic scale.
 all_significant_families <- family_recurrence$Family
@@ -778,15 +827,9 @@ if (length(all_significant_families) > 0) {
       panel.grid = ggplot2::element_blank()
     )
 
-  ggplot2::ggsave(
-    file.path(figures_dir, "family_differential_abundance_effect_heatmap.pdf"),
-    p_family_heatmap,
-    width = 10.5,
-    height = max(6, 0.30 * length(all_significant_families) + 2)
-  )
 }
 
-# SUPPLEMENTARY FIGURE: complete significant-ASV heatmap -----------------------
+# INTERNAL QC PLOT: complete significant-ASV heatmap ---------------------------
 # ASVs are still tested individually here. Taxonomy is retained in the table,
 # but the figure label uses Genus where available and ASV ID for traceability.
 # ASVs lacking a genus assignment remain in this supplementary figure as ASV ID.
@@ -853,12 +896,6 @@ p_asv_heatmap <- ggplot2::ggplot(
 
 asv_heatmap_height <- max(7, 0.22 * length(asv_recurrence_order) + 2)
 
-ggplot2::ggsave(
-  file.path(figures_dir, "ASV_differential_abundance_effect_heatmap.pdf"),
-  p_asv_heatmap,
-  width = 10.5,
-  height = asv_heatmap_height
-)
 
 # Console summary --------------------------------------------------------------
 cat("\n============================================================\n")
@@ -902,7 +939,11 @@ cat("============================================================\n")
 # Bottom:
 #   Number of significant ASVs / genera / families
 #
-# The six comparisons are aligned exactly between plots.
+# The six comparison columns are panel-aligned exactly between plots and displayed from
+# wilder to more laboratory-associated cohorts. Heatmap coefficients are
+# reoriented for display so negative values indicate higher abundance in the
+# first (wilder) cohort and positive values indicate higher abundance in the
+# second (more lab-associated) cohort.
 # Comparison labels appear only once, below the barplot.
 # Legends are placed horizontally below the full figure.
 # ============================================================
@@ -919,82 +960,44 @@ library(grid)
 
 
 # ------------------------------------------------------------
-# 1. Define comparison order
+# 1. Define comparison display order
 # ------------------------------------------------------------
+# Use the same wild-to-lab gradient as the other manuscript figures.
 
-comparison_order <- c(
-  "Wild-like:As vs Wild:As",
-  "Lab-like:As vs Wild:As",
-  "Lab:Mm vs Wild:As",
-  "Lab-like:As vs Wild-like:As",
-  "Lab:Mm vs Wild-like:As",
-  "Lab:Mm vs Lab-like:As"
-)
-
-
-# Shorter labels used only for display beneath the barplot
-comparison_labels <- c(
-  "Wild-like vs\nWild",
-  "Lab-like vs\nWild",
-  "Lab vs\nWild",
-  "Lab-like vs\nWild-like",
-  "Lab vs\nWild-like",
-  "Lab vs\nLab-like"
-)
+comparison_order <- display_comparison_order
+comparison_labels <- display_comparison_labels
 
 
 # ------------------------------------------------------------
 # 2. Number of significant taxa
 # ------------------------------------------------------------
-# NOTE:
-# These are the CURRENT results.
-# Update these values if they change after the final rerun.
-# ------------------------------------------------------------
+# Generate counts directly from the current model results rather than hard-coding
+# values, so this panel always reflects the latest ASV/genus/family analyses.
 
-count_data <- data.frame(
-  
-  comparison = rep(
-    comparison_order,
-    each = 3
-  ),
-  
-  taxonomic_level = rep(
-    c("ASV", "Genus", "Family"),
-    times = 6
-  ),
-  
-  n_significant = c(
-    
-    # Wild-like vs Wild
-    16, 12, 4,
-    
-    # Lab-like vs Wild
-    22, 17, 8,
-    
-    # Lab vs Wild
-    22, 22, 11,
-    
-    # Lab-like vs Wild-like
-    32, 22, 9,
-    
-    # Lab vs Wild-like
-    30, 20, 12,
-    
-    # Lab vs Lab-like
-    32, 20, 8
-  )
-)
-
-
-# Set plotting order explicitly
-count_data <- count_data %>%
+count_data <- dplyr::bind_rows(
+  asv_totals |>
+    dplyr::mutate(taxonomic_level = "ASV"),
+  genus_totals |>
+    dplyr::mutate(taxonomic_level = "Genus"),
+  family_totals |>
+    dplyr::mutate(taxonomic_level = "Family")
+) |>
   dplyr::mutate(
-    
+    contrast = as.character(contrast)
+  ) |>
+  dplyr::left_join(
+    display_contrast_key |>
+      dplyr::select(
+        contrast,
+        display_comparison
+      ),
+    by = "contrast"
+  ) |>
+  dplyr::transmute(
     comparison = factor(
-      comparison,
+      display_comparison,
       levels = comparison_order
     ),
-    
     taxonomic_level = factor(
       taxonomic_level,
       levels = c(
@@ -1002,7 +1005,8 @@ count_data <- count_data %>%
         "Genus",
         "Family"
       )
-    )
+    ),
+    n_significant = n_significant_features
   )
 
 
@@ -1020,6 +1024,7 @@ heatmap_integrated <- p_genus_heatmap +
   # Force columns into exactly the desired comparison order
   ggplot2::scale_x_discrete(
     limits = comparison_order,
+    labels = comparison_labels,
     drop = FALSE
   ) +
   
@@ -1202,22 +1207,37 @@ heatmap_legend <- cowplot::get_legend(
   heatmap_integrated +
     ggplot2::guides(
       fill = ggplot2::guide_colorbar(
+        title = "Coefficient\n(- = wilder,\n+ = lab-associated)",
         title.position = "top",
         title.hjust = 0,
-        barwidth = grid::unit(3.0, "cm"),
-        barheight = grid::unit(0.30, "cm")
+        barwidth = grid::unit(2.2, "cm"),
+        barheight = grid::unit(0.35, "cm")
       )
     ) +
     ggplot2::theme(
       legend.position = "bottom",
       legend.direction = "horizontal",
+      legend.justification = "left",
+      legend.box.just = "left",
       legend.title = ggplot2::element_text(
-        size = 10
+        size = 9,
+        lineheight = 0.95
       ),
       legend.text = ggplot2::element_text(
-        size = 9
+        size = 8.5
       ),
-      legend.margin = ggplot2::margin(0, 0, 0, 0)
+      legend.margin = ggplot2::margin(
+        t = 0,
+        r = 0,
+        b = 0,
+        l = 4
+      ),
+      legend.box.margin = ggplot2::margin(
+        t = 0,
+        r = 0,
+        b = 0,
+        l = 4
+      )
     )
 )
 
@@ -1269,67 +1289,91 @@ legend_block <- cowplot::plot_grid(
   heatmap_legend,
   bar_legend,
   ncol = 1,
-  
-  # Coefficient legend slightly smaller than taxonomic legend
+
   rel_heights = c(
-    0.8,
+    1.0,
     1.2
   ),
-  
+
   align = "v"
 )
 
 
 # ------------------------------------------------------------
-# 8. Build bottom row:
-#    legends on left + barplot on right
+# 8. ALIGN HEATMAP AND BARPLOT PLOTTING PANELS
+# ------------------------------------------------------------
+#
+# IMPORTANT:
+# The legend block must NOT take up horizontal layout space beside the barplot.
+# If it does, the barplot panel becomes narrower and its six comparison groups
+# no longer sit directly below the six heatmap columns.
+#
+# cowplot::align_plots() aligns the actual plotting panels of the heatmap and
+# barplot using their left and right axes. This ensures that the centre of each
+# comparison in the barplot is directly beneath the corresponding heatmap
+# column, even though the heatmap has long genus labels on its y-axis.
 # ------------------------------------------------------------
 
-bottom_row <- cowplot::plot_grid(
-  legend_block,
+aligned_DA_plots <- cowplot::align_plots(
+  heatmap_no_legend,
   barplot_no_legend,
-  
-  nrow = 1,
-  
-  # Narrow legend area; barplot gets most of the width
-  rel_widths = c(
-    0.25,
-    1
-  ),
-  
-  align = "h",
-  axis = "tb"
+  align = "v",
+  axis = "lr"
 )
 
+heatmap_aligned <- aligned_DA_plots[[1]]
+barplot_aligned <- aligned_DA_plots[[2]]
+
 
 # ------------------------------------------------------------
-# 9. Stack heatmap above bottom row
+# 9. STACK THE ALIGNED HEATMAP AND BARPLOT
 # ------------------------------------------------------------
 
 combined_core <- cowplot::plot_grid(
-  heatmap_no_legend,
-  bottom_row,
-  
+  heatmap_aligned,
+  barplot_aligned,
+
   ncol = 1,
-  
+
   rel_heights = c(
     3.6,
     1.6
-  )
+  ),
+
+  align = "v",
+  axis = "lr"
 )
 
 
 # ------------------------------------------------------------
-# 10. Add subtle outer margin
+# 10. ADD LEGENDS INTO THE LOWER-LEFT GUTTER
+# ------------------------------------------------------------
+#
+# Once the two plotting panels are aligned, the long genus labels in the
+# heatmap create a natural empty gutter to the left of the lower barplot.
+# Place the legends in that gutter as an overlay rather than as a separate
+# column. This preserves exact heatmap/barplot column alignment.
+#
+# If the journal/export changes font metrics slightly, only the four values
+# below should need small visual adjustment; they do not affect the data panels.
 # ------------------------------------------------------------
 
 combined_DA_figure <- cowplot::ggdraw() +
+
   cowplot::draw_plot(
     combined_core,
     x = 0.01,
     y = 0.01,
-    width = 0.975,
-    height = 0.975
+    width = 0.98,
+    height = 0.98
+  ) +
+
+  cowplot::draw_plot(
+    legend_block,
+    x = 0.005,
+    y = 0.015,
+    width = 0.205,
+    height = 0.255
   )
 
 
@@ -1340,11 +1384,175 @@ combined_DA_figure <- cowplot::ggdraw() +
 ggplot2::ggsave(
   filename = file.path(
     figures_dir,
-    "differential_abundance_summary_figure.pdf"
+    "Differential_Abundance_Summary.pdf"
   ),
   plot = combined_DA_figure,
-  width = 8,
+  width = 8.4,
   height = 8,
   units = "in",
   device = cairo_pdf
 )
+
+
+# ==============================================================================
+# SAVE ONE STREAMLINED DIFFERENTIAL-ABUNDANCE RESULTS WORKBOOK
+# ==============================================================================
+
+# Compact summary of the design and the number of significant results.
+analysis_summary <- tibble::tibble(
+  Metric = c(
+    "Samples analysed",
+    "Independent mice",
+    "Repeated-measure mice",
+    "Minimum prevalence",
+    "ASVs retained for modelling",
+    "Named genera retained for modelling",
+    "Named families retained for modelling",
+    "Unique significant ASVs",
+    "Unique significant genera",
+    "Unique significant families",
+    "Significant ASV-contrast associations",
+    "Significant genus-contrast associations",
+    "Significant family-contrast associations"
+  ),
+  Value = c(
+    nrow(asv_input),
+    repeat_summary$n_mice,
+    repeat_summary$n_mice_repeated,
+    minimum_prevalence,
+    ncol(asv_input),
+    ncol(genus_input),
+    ncol(family_input),
+    dplyr::n_distinct(asv_significant$ASV),
+    dplyr::n_distinct(genus_significant$Genus),
+    dplyr::n_distinct(family_significant$Family),
+    nrow(asv_significant),
+    nrow(genus_significant),
+    nrow(family_significant)
+  )
+)
+
+# Counts shown in the lower panel of the main figure, using the same wild-to-lab
+# display order as the figure.
+significant_counts_export <- count_data |>
+  dplyr::mutate(
+    comparison = as.character(comparison),
+    taxonomic_level = as.character(taxonomic_level)
+  ) |>
+  tidyr::pivot_wider(
+    names_from = taxonomic_level,
+    values_from = n_significant
+  ) |>
+  dplyr::arrange(
+    factor(
+      comparison,
+      levels = display_comparison_order
+    )
+  )
+
+# Keep only FDR-significant associations in the reader-facing workbook.
+# Complete model results are available in memory while this script runs.
+asv_significant_export <- asv_significant |>
+  dplyr::mutate(
+    contrast = as.character(contrast)
+  ) |>
+  dplyr::arrange(
+    contrast,
+    qval_individual
+  )
+
+genus_significant_export <- genus_significant |>
+  dplyr::mutate(
+    contrast = as.character(contrast)
+  ) |>
+  dplyr::arrange(
+    contrast,
+    qval_individual
+  )
+
+family_significant_export <- family_significant |>
+  dplyr::mutate(
+    contrast = as.character(contrast)
+  ) |>
+  dplyr::arrange(
+    contrast,
+    qval_individual
+  )
+
+# One reader-facing workbook for the entire differential-abundance analysis.
+#
+# Sheets:
+#   Analysis Summary
+#     Sample/model counts and total numbers of significant results.
+#
+#   Taxonomic Coverage
+#     Proportion of ASVs and reads represented by valid genus/family assignments.
+#
+#   Significant Counts
+#     Numbers of significant ASVs, genera, and families for each pairwise contrast.
+#
+#   ASV Significant
+#     All FDR-significant ASV-level associations with taxonomy.
+#
+#   Genus Significant
+#     All FDR-significant genus-level associations.
+#
+#   Family Significant
+#     All FDR-significant family-level associations.
+
+da_results_workbook <- list(
+  "Analysis Summary" =
+    analysis_summary,
+
+  "Taxonomic Coverage" =
+    taxonomic_resolution_summary,
+
+  "Significant Counts" =
+    significant_counts_export,
+
+  "ASV Significant" =
+    asv_significant_export,
+
+  "Genus Significant" =
+    genus_significant_export,
+
+  "Family Significant" =
+    family_significant_export
+)
+
+openxlsx::write.xlsx(
+  x = da_results_workbook,
+  file = file.path(
+    tables_dir,
+    "Differential_Abundance_results.xlsx"
+  ),
+  overwrite = TRUE,
+  rowNames = FALSE
+)
+
+cat(
+  "\n============================================================\n",
+  "DIFFERENTIAL-ABUNDANCE OUTPUTS\n",
+  "============================================================\n",
+  "Workbook:\n  ",
+  file.path(
+    tables_dir,
+    "Differential_Abundance_results.xlsx"
+  ),
+  "\n\nComplete figure:\n  ",
+  file.path(
+    figures_dir,
+    "Differential_Abundance_Summary.pdf"
+  ),
+  "\n============================================================\n",
+  sep = ""
+)
+
+# Remove temporary MaAsLin3 output files created during this run.
+if (dir.exists(model_dir)) {
+  unlink(
+    model_dir,
+    recursive = TRUE,
+    force = TRUE
+  )
+}
